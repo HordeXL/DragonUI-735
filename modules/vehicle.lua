@@ -157,8 +157,7 @@ end
 
 local function vehiclebar_power_setup()
     if not vehiclebar then return end
-    
-    VehicleMenuBarLeaveButton:SetParent(vehiclebar)
+    if not VehicleMenuBarLeaveButton then return end
     VehicleMenuBarLeaveButton:SetSize(47, 50)
     VehicleMenuBarLeaveButton:SetClearPoint('BOTTOMRIGHT', -178, 14)
     VehicleMenuBarLeaveButton:SetHighlightTexture('Interface\\Vehicles\\UI-Vehicles-Button-Highlight')
@@ -195,6 +194,7 @@ end
 
 local function vehiclebar_mechanical_setup()
     if not vehicleBarBackground then return end
+    if not VehicleMenuBarHealthBar then return end
     
     vehicleBarBackground.OrganicUi:Hide()
     vehicleBarBackground.MechanicUi:Show()
@@ -257,6 +257,7 @@ end
 
 local function vehiclebar_organic_setup()
     if not vehicleBarBackground then return end
+    if not VehicleMenuBarHealthBar then return end
     
     vehicleBarBackground.OrganicUi:Show()
     vehicleBarBackground.MechanicUi:Hide()
@@ -287,24 +288,23 @@ local function vehiclebar_layout_setup()
 end
 
 local function vehiclebutton_position()
-    if not vehiclebar then return end
-    
+    local bar = _G['OverrideActionBar']
+    if not bar then return end
+
     local button
-    if vehiclebar:IsShown() or (vehicleBarBackground and vehicleBarBackground:IsShown()) then
-        for index=1, VEHICLE_MAX_ACTIONBUTTONS do
-            button = _G['VehicleMenuBarActionButton'..index]
-            if button then
-                button:ClearAllPoints()
-                button:SetParent(vehiclebar)
-                button:SetSize(52, 52)
-                button:Show()
-                if index == 1 then
-                    button:SetPoint('BOTTOMLEFT', vehiclebar, 'BOTTOMRIGHT', -594, 21)
-                else
-                    local previous = _G['VehicleMenuBarActionButton'..(index-1)]
-                    if previous then
-                        button:SetPoint('LEFT', previous, 'RIGHT', 6, 0)
-                    end
+    local maxButtons = VEHICLE_MAX_ACTIONBUTTONS or 6
+    local spacing = 8
+    for index=1, maxButtons do
+        button = _G['OverrideActionBarButton'..index]
+        if button then
+            button:ClearAllPoints()
+            button:SetSize(config.additional.size * 1.6, config.additional.size * 1.6)
+            if index == 1 then
+                button:SetPoint('BOTTOMLEFT', bar, 'BOTTOMLEFT', 160, 18)
+            else
+                local previous = _G['OverrideActionBarButton'..(index-1)]
+                if previous then
+                    button:SetPoint('LEFT', previous, 'RIGHT', spacing, 0)
                 end
             end
         end
@@ -315,10 +315,11 @@ local function vehiclebutton_state(self)
     if not self then return end
     
     local button
-    for index=1, VEHICLE_MAX_ACTIONBUTTONS do
-        button = _G['VehicleMenuBarActionButton'..index]
+    local maxButtons = VEHICLE_MAX_ACTIONBUTTONS or 6
+    for index=1, maxButtons do
+        button = _G['OverrideActionBarButton'..index]
         if button then
-            self:SetFrameRef('VehicleMenuBarActionButton'..index, button)
+            self:SetFrameRef('OverrideActionBarButton'..index, button)
         end
     end	
     self:SetAttribute('_onstate-vehicleupdate', [[
@@ -416,14 +417,27 @@ local function OnEvent(self, event, ...)
     elseif event == 'PLAYER_ENTERING_WORLD' then
         vehiclebutton_position()
     elseif event == 'UNIT_ENTERED_VEHICLE' then
+        if vehicleBarBackground then vehicleBarBackground:Show() end
+        if vehiclebar then vehiclebar:Show() end
+        vehiclebar_power_setup()
         vehiclebar_layout_setup()
+        vehiclebutton_position()
         if addon.vehiclebuttons_template then
             addon.vehiclebuttons_template()
         end
-        UnitFrameHealthBar_Update(VehicleMenuBarHealthBar, 'vehicle')
-        UnitFrameManaBar_Update(VehicleMenuBarPowerBar, 'vehicle')
+        if VehicleMenuBarHealthBar then
+            UnitFrameHealthBar_Update(VehicleMenuBarHealthBar, 'vehicle')
+        end
+        if VehicleMenuBarPowerBar then
+            UnitFrameManaBar_Update(VehicleMenuBarPowerBar, 'vehicle')
+        end
+    elseif event == 'UNIT_EXITED_VEHICLE' then
+        if vehicleBarBackground then vehicleBarBackground:Hide() end
+        if vehiclebar then vehiclebar:Hide() end
     elseif event == 'UNIT_DISPLAYPOWER' then
-        UnitFrameManaBar_Update(VehicleMenuBarPowerBar, 'vehicle')
+        if VehicleMenuBarPowerBar then
+            UnitFrameManaBar_Update(VehicleMenuBarPowerBar, 'vehicle')
+        end
         vehiclebutton_position()
     end
 end
@@ -542,8 +556,7 @@ local function ApplyVehicleSystem()
         end
         
         vehiclebar:SetScript('OnEvent', OnEvent)
-        vehiclebar_power_setup()
-        
+
         -- Setup main bar state driver
         VehicleModule.stateDrivers.mainBarVehicle = {frame = pUiMainBar, state = 'vehicleupdate'}
         pUiMainBar:SetAttribute('_onstate-vehicleupdate', [[

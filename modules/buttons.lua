@@ -456,7 +456,7 @@ local function RestoreAllButtons()
     
     -- Restore vehicle buttons
     for index=1, VEHICLE_MAX_ACTIONBUTTONS do
-        local button = _G['VehicleMenuBarActionButton'..index]
+        local button = _G['OverrideActionBarButton'..index]
         if button then
             RestoreButtonToOriginal(button)
         end
@@ -598,8 +598,9 @@ function addon.vehiclebuttons_template()
     if not IsModuleEnabled() then return end
     
 	if UnitHasVehicleUI('player') then
-		for index=1, VEHICLE_MAX_ACTIONBUTTONS do
-			local button = _G['VehicleMenuBarActionButton'..index]
+		local maxButtons = VEHICLE_MAX_ACTIONBUTTONS or 6
+		for index=1, maxButtons do
+			local button = _G['OverrideActionBarButton'..index]
 			if button then
 				main_buttons(button)
 				-- Aplicar formato de hotkeys también a vehicle buttons
@@ -782,7 +783,7 @@ initFrame:SetScript("OnEvent", function(self, event, addonName)
             -- Vehicle buttons
             if UnitHasVehicleUI('player') then
                 for index=1, VEHICLE_MAX_ACTIONBUTTONS do
-                    local button = _G['VehicleMenuBarActionButton'..index]
+                    local button = _G['OverrideActionBarButton'..index]
                     if button then
                         actionbuttons_hotkey(button)
                     end
