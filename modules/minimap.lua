@@ -1341,6 +1341,8 @@ function MinimapModule:InitializeMinimapSystem()
         btn:SetParent(UIParent)
         btn:ClearAllPoints()
         btn:SetPoint("CENTER", garrisonFrame, "CENTER", 0, 0)
+        btn.SetParent = addon._noop
+        btn.SetPoint = addon._noop
 
         garrisonFrame:HookScript("OnDragStop", function(self)
             btn:ClearAllPoints()
@@ -1381,6 +1383,66 @@ function MinimapModule:InitializeMinimapSystem()
 
     -- Store reference for widget updates
     self.garrisonFrame = garrisonFrame
+
+    -- =================================================================
+    -- VEHICLE SEAT INDICATOR - MOVABLE (multi-passenger mounts)
+    -- =================================================================
+    local vehicleSeatFrame = CreateUIFrame(120, 60, "VehicleSeatIndicatorFrame")
+
+    --local seatWidgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.vehicleseat
+    --local seatDefaults = addon.defaults and addon.defaults.profile and addon.defaults.profile.widgets and addon.defaults.profile.widgets.vehicleseat
+    --local seatConfig = seatWidgetConfig or seatDefaults
+
+    local seatConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.vehicleseat
+
+    if seatConfig then
+        vehicleSeatFrame:SetPoint(seatConfig.anchor or "RIGHT", UIParent,
+            seatConfig.anchor or "RIGHT",
+            seatConfig.posX or -60, seatConfig.posY or 70)
+    else
+        vehicleSeatFrame:SetPoint("RIGHT", UIParent, "TOPRIGHT", -60, 70)
+    end
+
+    addon:RegisterEditableFrame({
+        name = "vehicleseat",
+        frame = vehicleSeatFrame,
+        blizzardFrame = _G.VehicleSeatIndicator,
+        configPath = {"widgets", "vehicleseat"},
+        module = self
+    })
+
+    local function ReparentVehicleSeatIndicator()
+        local seatIndicator = _G.VehicleSeatIndicator
+        if not seatIndicator then return end
+
+        seatIndicator:SetParent(UIParent)
+        seatIndicator:ClearAllPoints()
+        seatIndicator:SetPoint("TOPLEFT", vehicleSeatFrame, "TOPLEFT", 0, 0)
+        seatIndicator.SetParent = addon._noop
+        seatIndicator.SetPoint = addon._noop
+
+        vehicleSeatFrame:HookScript("OnDragStop", function(self)
+            -- Update anchor to follow wrapper
+        end)
+    end
+
+    if _G.VehicleSeatIndicator then
+        ReparentVehicleSeatIndicator()
+    end
+
+    -- Listen for vehicle seat indicator creation
+    local seatListener = CreateFrame("Frame")
+    seatListener:RegisterEvent("UNIT_ENTERED_VEHICLE")
+    seatListener:RegisterEvent("UNIT_EXITED_VEHICLE")
+    seatListener:SetScript("OnEvent", function(self, event)
+        if event == "UNIT_ENTERED_VEHICLE" then
+            C_Timer.After(0.5, function()
+                ReparentVehicleSeatIndicator()
+            end)
+        end
+    end)
+
+    self.vehicleSeatFrame = vehicleSeatFrame
 
     --  AÑADIR ESTA LÍNEA PARA APLICAR TODAS LAS CONFIGURACIONES AL INICIO
     self:UpdateSettings()

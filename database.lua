@@ -95,6 +95,11 @@ local defaults = {
                 anchor = "BOTTOM",
                 posX = 1,
                 posY = 7
+            },
+            vehicleseat = {
+                anchor = "RIGHT",
+                posX = -60,
+                posY = 70
             }
         },
         -- Quest Tracker

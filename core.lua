@@ -76,10 +76,17 @@ function addon.core:OnInitialize()
     -- Replace the temporary addon.db with the real AceDB
     addon.db = LibStub("AceDB-3.0"):New("DragonUIDB", addon.defaults);
 
-    -- Force defaults to be written to profile (check for specific key that should always exist)
-    if not addon.db.profile.mainbars or not addon.db.profile.mainbars.scale_actionbar then
-        -- Copy all defaults to profile to ensure they exist in SavedVariables
-        deepCopy(addon.defaults.profile, addon.db.profile);
+    -- Force defaults to be written to profile for new/missing widgets
+    if addon.defaults and addon.defaults.profile and addon.defaults.profile.widgets then
+        for widgetName, widgetDefaults in pairs(addon.defaults.profile.widgets) do
+            if not addon.db.profile.widgets or not addon.db.profile.widgets[widgetName] then
+                if not addon.db.profile.widgets then
+                    addon.db.profile.widgets = {}
+                end
+                addon.db.profile.widgets[widgetName] = {}
+                deepCopy(widgetDefaults, addon.db.profile.widgets[widgetName])
+            end
+        end
     end
 
     -- Register callbacks for configuration changes
@@ -453,6 +460,8 @@ function SaveUIFramePosition(frame, configPath1, configPath2)
 
     local anchor, _, relativePoint, posX, posY = frame:GetPoint(1) -- Primer punto
 
+    print("[DragonUI SaveUI] "..(configPath2 or configPath1).." anchor="..tostring(anchor).." posX="..tostring(posX).." posY="..tostring(posY).." numPoints="..tostring(frame:GetNumPoints()))
+
     --  MANEJAR RUTAS ANIDADAS (widgets.player)
     if configPath2 then
         -- Caso: SaveUIFramePosition(frame, "widgets", "player")
@@ -464,9 +473,11 @@ function SaveUIFramePosition(frame, configPath1, configPath2)
             addon.db.profile[configPath1][configPath2] = {}
         end
 
-        addon.db.profile[configPath1][configPath2].anchor = anchor or "CENTER"
-        addon.db.profile[configPath1][configPath2].posX = posX or 0
-        addon.db.profile[configPath1][configPath2].posY = posY or 0
+        addon.db.profile[configPath1][configPath2] = {
+            anchor = anchor or "CENTER",
+            posX = posX or 0,
+            posY = posY or 0
+        }
 
 
     else
