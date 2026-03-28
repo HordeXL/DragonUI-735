@@ -1311,6 +1311,77 @@ function MinimapModule:InitializeMinimapSystem()
     RemoveBlizzardFrames()
     ReplaceBlizzardFrame(self.minimapFrame)
 
+    -- =================================================================
+    -- GARRISON / ORDER HALL REPORT BUTTON - MOVABLE
+    -- =================================================================
+    local garrisonFrame = CreateUIFrame(40, 40, "GarrisonReportFrame")
+
+    local garrisonWidgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.garrisonreport
+    if garrisonWidgetConfig then
+        garrisonFrame:SetPoint(garrisonWidgetConfig.anchor or "TOPRIGHT", UIParent,
+            garrisonWidgetConfig.anchor or "TOPRIGHT",
+            garrisonWidgetConfig.posX or 0, garrisonWidgetConfig.posY or 0)
+    else
+        garrisonFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -60, -180)
+    end
+
+    addon:RegisterEditableFrame({
+        name = "garrisonreport",
+        frame = garrisonFrame,
+        blizzardFrame = _G.GarrisonLandingPageMinimapButton,
+        configPath = {"widgets", "garrisonreport"},
+        module = self
+    })
+
+    -- Hook garrison button to follow wrapper frame
+    local function ReparentGarrisonButton()
+        local btn = _G.GarrisonLandingPageMinimapButton
+        if not btn then return end
+
+        btn:SetParent(UIParent)
+        btn:ClearAllPoints()
+        btn:SetPoint("CENTER", garrisonFrame, "CENTER", 0, 0)
+
+        garrisonFrame:HookScript("OnDragStop", function(self)
+            btn:ClearAllPoints()
+            btn:SetPoint("CENTER", self, "CENTER", 0, 0)
+        end)
+
+        garrisonFrame:HookScript("OnShow", function(self)
+            btn:ClearAllPoints()
+            btn:SetPoint("CENTER", self, "CENTER", 0, 0)
+        end)
+
+        garrisonFrame:HookScript("OnUpdate", function(self)
+            if not btn:GetPoint() then
+                btn:ClearAllPoints()
+                btn:SetPoint("CENTER", self, "CENTER", 0, 0)
+            end
+        end)
+    end
+
+    -- GarrisonLandingPageMinimapButton is created by Blizzard_GarrisonUI (loaded on demand)
+    if _G.GarrisonLandingPageMinimapButton then
+        ReparentGarrisonButton()
+    else
+        local garrisonListener = CreateFrame("Frame")
+        garrisonListener:RegisterEvent("ADDON_LOADED")
+        garrisonListener:SetScript("OnEvent", function(self, _, loadedAddon)
+            if loadedAddon == "Blizzard_GarrisonUI" then
+                self:UnregisterEvent("ADDON_LOADED")
+                -- Delay slightly to ensure the button is fully created
+                C_Timer.After(0.5, function()
+                    if _G.GarrisonLandingPageMinimapButton then
+                        ReparentGarrisonButton()
+                    end
+                end)
+            end
+        end)
+    end
+
+    -- Store reference for widget updates
+    self.garrisonFrame = garrisonFrame
+
     --  AÑADIR ESTA LÍNEA PARA APLICAR TODAS LAS CONFIGURACIONES AL INICIO
     self:UpdateSettings()
 

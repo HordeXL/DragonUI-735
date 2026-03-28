@@ -8,17 +8,17 @@ local defaults = {
             minimap = {
                 anchor = "TOPRIGHT",
                 posX = 0,
-                posY = 0
+                posY = -20
             },
             player = {
                 anchor = "TOPLEFT",
                 posX = 10,
-                posY = -9
+                posY = -30
             },
             target = {
                 anchor = "TOPLEFT",
                 posX = 230,
-                posY = -9
+                posY = -30
             },
             focus = {
                 anchor = "TOPLEFT",
@@ -32,13 +32,13 @@ local defaults = {
             },
             buffs = {
                 anchor = "TOPRIGHT",
-                posX = -260,
-                posY = -20
+                posX = -250,
+                posY = -30
             },
             pet = {
                 anchor = "TOPLEFT",
                 posX = 63,
-                posY = -80
+                posY = -100
             },
             petbar = {
                 anchor = "BOTTOM",
@@ -49,6 +49,11 @@ local defaults = {
                 anchor = "BOTTOM",
                 posX = 0,
                 posY = 200
+            },
+            garrisonreport = {
+                anchor = "TOPRIGHT",
+                posX = -160,
+                posY = -200
             },
 
             mainbar = {

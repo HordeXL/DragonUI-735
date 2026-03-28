@@ -132,8 +132,8 @@ function BuffFrameModule:UpdatePosition()
         -- 使用database.lua中的默认值
         addon.db.profile.widgets.buffs = {
             anchor = "TOPRIGHT",
-            posX = -260,
-            posY = -20
+            posX = -250,
+            posY = -30
         }
         addon:DebugInfo("BuffFrame", "初始化widgets.buffs配置为默认值")
     end
