@@ -1461,6 +1461,7 @@ local function ApplyMicromenuSystem()
                 button:ClearAllPoints()
                 button:SetPoint('BOTTOMLEFT', menu, 'BOTTOMRIGHT', buttonxOffset, 55)
                 button.SetPoint = addon._noop
+                button.SetParent = addon._noop -- prevent Blizzard from reparenting buttons
                 button:SetHitRectInsets(0, 0, 0, 0)
 
                 button:EnableMouse(true)
@@ -1755,27 +1756,11 @@ end
     end
 
     function addon.RefreshMicromenuVehicle()
-        if not _G.pUiMicroMenu then
-            return
-        end
-
-        if addon.db.profile.micromenu.hide_on_vehicle then
-            RegisterStateDriver(_G.pUiMicroMenu, 'visibility', '[vehicleui] hide;show')
-        else
-            UnregisterStateDriver(_G.pUiMicroMenu, 'visibility')
-        end
+        -- Vehicle visibility is handled by event listeners below
     end
 
     function addon.RefreshBagsVehicle()
-        if not _G.pUiBagsBar then
-            return
-        end
-
-        if addon.db.profile.micromenu.hide_on_vehicle then
-            RegisterStateDriver(_G.pUiBagsBar, 'visibility', '[vehicleui] hide;show')
-        else
-            UnregisterStateDriver(_G.pUiBagsBar, 'visibility')
-        end
+        -- Vehicle visibility is handled by event listeners below
     end
 
     function addon.RefreshMicromenuIcons()
@@ -2313,5 +2298,37 @@ initFrame:SetScript("OnEvent", function(self, event, addonName)
     if addonName == "DragonUI" then
         Initialize()
         self:UnregisterAllEvents()
+    end
+end)
+
+local function VehicleShowMicromenu()
+    if _G.pUiMicroMenu then
+        _G.pUiMicroMenu:Show()
+        for _, button in pairs(MICRO_BUTTONS) do
+            if button then
+                button:SetParent(_G.pUiMicroMenu)
+                button:Show()
+            end
+        end
+    end
+    if _G.pUiBagsBar then
+        _G.pUiBagsBar:Show()
+    end
+end
+
+local vehicleEventFrame = CreateFrame("Frame")
+vehicleEventFrame:RegisterEvent("UNIT_ENTERED_VEHICLE")
+vehicleEventFrame:RegisterEvent("UNIT_EXITED_VEHICLE")
+vehicleEventFrame:SetScript("OnEvent", function(self, event, unit)
+    if unit ~= "player" then return end
+
+    local hide = addon.db and addon.db.profile and addon.db.profile.micromenu and addon.db.profile.micromenu.hide_on_vehicle
+    if not hide then return end
+
+    if event == "UNIT_ENTERED_VEHICLE" then
+        if _G.pUiMicroMenu then _G.pUiMicroMenu:Hide() end
+        if _G.pUiBagsBar then _G.pUiBagsBar:Hide() end
+    elseif event == "UNIT_EXITED_VEHICLE" then
+        VehicleShowMicromenu()
     end
 end)
