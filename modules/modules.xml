@@ -1,0 +1,38 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <!-- Conflict Detection module (loaded early) -->
+    <Script file="compatibility.lua"/>
+    
+    <!-- Actionbar modules -->
+    <Script file="noop.lua"/>
+    <Script file="buttons.lua"/>
+    <Script file="cooldowns.lua"/>
+    <Script file="mainbars.lua"/>
+    <Script file="stance.lua"/>
+    <Script file="vehicle.lua"/>
+    <Script file="petbar.lua"/>
+    <Script file="multicast.lua"/>
+    
+    <!-- Micro Menu & Bag module -->
+    <Script file="micromenu.lua"/>
+    
+    <!-- KeyBinding module -->
+    <Script file="keybinding.lua"/>
+    
+    <!-- Buffs, Minimap & Quest Tracker modules -->
+    <Script file="auras.lua"/>
+    <Script file="BuffFrame.lua"/> 
+    <Script file="minimap.lua"/>    
+    <Script file="questtracker.lua"/>   
+ 
+    <!-- UnitFrames -->
+    <Include file="unitframes\unitframes.xml"/>
+    
+    <!-- Cast Bar module -->
+    <Script file="castbar.lua"/>               
+    
+    <!-- Game Menu module -->
+    <Script file="gamemenu.lua"/>
+    
+    <!-- Editor Mode module -->
+    <Script file="editor_mode.lua"/>
+</Ui>

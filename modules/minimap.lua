@@ -1,0 +1,1726 @@
+--[[
+    DragonUI Minimap Module - Adaptado de RetailUI
+    Código base por Dmitriy (RetailUI) adaptado para DragonUI
+]] local addon = select(2, ...);
+
+--  Import DragonUI atlas function for tracking icons
+local atlas = addon.minimap_SetAtlas;
+
+--  Ensure _noop function exists
+if not addon._noop then
+    addon._noop = function()
+        return
+    end
+end
+
+-- #################################################################
+-- ##                    DragonUI Minimap Module                  ##
+-- ##              Unified minimap system (1 file)                ##
+-- ##        Based on RetailUI pattern                            ##
+-- #################################################################
+
+-- Convertir el módulo para usar DragonUI module pattern
+local MinimapModule = {
+    initialized = false,
+    applied = false,
+    originalStates = {},
+    registeredEvents = {},
+    hooks = {},
+    stateDrivers = {},
+    frames = {},
+    -- Legacy properties for compatibility
+    minimapFrame = nil,
+    borderFrame = nil,
+    isEnabled = false,
+    originalMinimapSettings = {},
+    originalMask = nil
+}
+addon.MinimapModule = MinimapModule;
+
+-- Función para obtener configuración del módulo
+local function GetModuleConfig()
+    return addon.db and addon.db.profile and addon.db.profile.modules and addon.db.profile.modules.minimap
+end
+
+local function IsModuleEnabled()
+    local config = GetModuleConfig()
+    if config and config.enabled ~= nil then
+        return config.enabled
+    end
+    return true -- Default enabled
+end
+
+local DEFAULT_MINIMAP_WIDTH = Minimap:GetWidth() * 1.36
+local DEFAULT_MINIMAP_HEIGHT = Minimap:GetHeight() * 1.36
+-- ⚠️ blipScale影响小地图图标的缩放
+-- 3.3.5默认: 1.12
+-- 7.3.5可能需要不同的值! Si图标显示不正常,尝试调整此值
+local blipScale = 1.0  -- 从DEBUG中改为1.0来测试
+local BORDER_SIZE = 71 * 2 * 2 ^ 0.5
+
+local ADDON_ORBIT_RADIUS = 15
+
+local MINIMAP_TEXTURES = {
+    BORDER = "Interface\\AddOns\\DragonUI\\assets\\uiminimapborder"
+}
+
+--  ADDON ICON SKINNING: Definir whitelist y función ANTES de ReplaceBlizzardFrame
+local WHITE_LIST = {'MiniMapBattlefieldFrame', 'MiniMapTrackingButton', 'MiniMapMailFrame', 'HelpOpenTicketButton',
+                    'GatherMatePin', 'HandyNotesPin', 'TimeManagerClockButton', 'Archy', 'GatherNote', 'MinimMap',
+                    'Spy_MapNoteList_mini', 'ZGVMarker', 'poiWorldMapPOIFrame', 'WorldMapPOIFrame', 'QuestMapPOI',
+                    'GameTimeFrame'}
+
+local function IsFrameWhitelisted(frameName)
+    if not frameName then
+        return false
+    end
+
+    for i, buttons in pairs(WHITE_LIST) do
+        if frameName ~= nil then
+            if frameName:match(buttons) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- 检查纹理文件是否存在的辅助函数
+local function ValidateBlipTexture(texturePath)
+    -- 创建一个临时纹理来测试
+    local testFrame = CreateFrame("Frame")
+    local testTexture = testFrame:CreateTexture()
+    
+    local success = pcall(function()
+        testTexture:SetTexture(texturePath)
+    end)
+    
+    testFrame:Hide()
+    
+    if success then
+        local texName = testTexture:GetTexture()
+        if texName and texName ~= "" then
+            addon:DebugInfo("Minimap", "纹理验证成功: %s", texturePath)
+            return true
+        else
+            addon:DebugWarning("Minimap", "纹理验证失败 - 纹理为空: %s", texturePath)
+            return false
+        end
+    else
+        addon:DebugError("Minimap", "纹理验证失败 - 无法加载: %s", texturePath)
+        return false
+    end
+end
+
+--  VERIFICAR FUNCIÓN ATLAS AL INICIO
+local function GetAtlasFunction()
+    -- Verificar múltiples posibles ubicaciones de la función atlas
+    if addon.minimap_SetAtlas then
+        return addon.minimap_SetAtlas
+    elseif addon.SetAtlas then
+        return addon.SetAtlas
+    elseif SetAtlasTexture then
+        return SetAtlasTexture
+    else
+        return nil
+    end
+end
+
+-- SECURE HOOKS: Agregar hooks seguros para funciones críticas
+local function SetupSecureHooks()
+    if MinimapModule.hooks.CloseDropDownMenus then
+        return -- Already hooked
+    end
+
+    -- Hook seguro para CloseDropDownMenus
+    MinimapModule.hooks.CloseDropDownMenus = function()
+        if MiniMapTrackingIcon and MiniMapTrackingIcon:GetAlpha() > 0 then
+            MiniMapTrackingIcon:ClearAllPoints()
+            MiniMapTrackingIcon:SetPoint('CENTER', MiniMapTracking, 'CENTER', 0, 0)
+        end
+    end
+    hooksecurefunc("CloseDropDownMenus", MinimapModule.hooks.CloseDropDownMenus)
+
+    -- Hook seguro para SetTracking
+    MinimapModule.hooks.SetTracking = function()
+        if MinimapModule.applied then
+            MinimapModule:UpdateTrackingIcon()
+        end
+    end
+    hooksecurefunc("SetTracking", MinimapModule.hooks.SetTracking)
+
+    -- Hook para Minimap_UpdateRotationSetting si existe
+    -- ⭐ 7.3.5 FIX: Removed to prevent infinite recursion
+    -- The hook was calling itself, causing "C stack overflow" error
+    --[[
+    if Minimap_UpdateRotationSetting then
+        MinimapModule.hooks.Minimap_UpdateRotationSetting = function()
+            if MinimapModule.applied then
+                Minimap_UpdateRotationSetting()
+            end
+        end
+        hooksecurefunc("Minimap_UpdateRotationSetting", MinimapModule.hooks.Minimap_UpdateRotationSetting)
+    end
+    ]]--
+end
+
+-- CLEANUP: Función para limpiar hooks
+local function CleanupSecureHooks()
+    -- No hay manera directa de unhook en WoW 3.3.5a, pero trackear para debugging
+    MinimapModule.hooks = {}
+end
+
+local function UpdateCalendarDate()
+    local _, _, day = CalendarGetDate()
+
+    local gameTimeFrame = GameTimeFrame
+
+    local normalTexture = gameTimeFrame:GetNormalTexture()
+    normalTexture:SetAllPoints(gameTimeFrame)
+    SetAtlasTexture(normalTexture, 'Minimap-Calendar-' .. day .. '-Normal')
+
+    local highlightTexture = gameTimeFrame:GetHighlightTexture()
+    highlightTexture:SetAllPoints(gameTimeFrame)
+    SetAtlasTexture(highlightTexture, 'Minimap-Calendar-' .. day .. '-Highlight')
+
+    local pushedTexture = gameTimeFrame:GetPushedTexture()
+    pushedTexture:SetAllPoints(gameTimeFrame)
+    SetAtlasTexture(pushedTexture, 'Minimap-Calendar-' .. day .. '-Pushed')
+end
+
+local function ReplaceBlizzardFrame(frame)
+    -- Check combat lockdown before making secure frame changes
+    if InCombatLockdown() then
+        MinimapModule.registeredEvents.PLAYER_REGEN_ENABLED = function()
+            ReplaceBlizzardFrame(frame)
+            MinimapModule.registeredEvents.PLAYER_REGEN_ENABLED = nil
+        end
+        return
+    end
+
+    -- Store original states before modification
+    if not MinimapModule.originalStates.MinimapCluster then
+        MinimapModule.originalStates.MinimapCluster = {
+            points = {},
+            scale = MinimapCluster:GetScale()
+        }
+        for i = 1, MinimapCluster:GetNumPoints() do
+            MinimapModule.originalStates.MinimapCluster.points[i] = {MinimapCluster:GetPoint(i)}
+        end
+    end
+
+    -- Store DurabilityFrame original state
+    if DurabilityFrame and not MinimapModule.originalStates.DurabilityFrame then
+        MinimapModule.originalStates.DurabilityFrame = {
+            points = {},
+            scale = DurabilityFrame:GetScale()
+        }
+        for i = 1, DurabilityFrame:GetNumPoints() do
+            MinimapModule.originalStates.DurabilityFrame.points[i] = {DurabilityFrame:GetPoint(i)}
+        end
+    end
+
+    local minimapCluster = MinimapCluster
+    minimapCluster:ClearAllPoints()
+    minimapCluster:SetPoint("CENTER", frame, "CENTER", 0, 0)
+
+    local minimapBorderTop = MinimapBorderTop
+    minimapBorderTop:ClearAllPoints()
+    minimapBorderTop:SetPoint("TOP", 0, 5)
+    SetAtlasTexture(minimapBorderTop, 'Minimap-Border-Top')
+    minimapBorderTop:SetSize(156, 20)
+
+    local minimapZoneButton = MinimapZoneTextButton
+    minimapZoneButton:ClearAllPoints()
+    minimapZoneButton:SetPoint("LEFT", minimapBorderTop, "LEFT", 7, 1)
+    minimapZoneButton:SetWidth(108)
+
+    minimapZoneButton:EnableMouse(true)
+    minimapZoneButton:SetScript("OnMouseUp", function(self, button)
+        if button == "LeftButton" then
+            if WorldMapFrame:IsShown() then
+                HideUIPanel(WorldMapFrame)
+            else
+                ShowUIPanel(WorldMapFrame)
+            end
+        end
+    end)
+
+    local minimapZoneText = MinimapZoneText
+    minimapZoneText:SetAllPoints(minimapZoneButton)
+    minimapZoneText:SetJustifyH("LEFT")
+
+    local timeClockButton = TimeManagerClockButton
+    timeClockButton:GetRegions():Hide()
+    timeClockButton:ClearAllPoints()
+    timeClockButton:SetPoint("RIGHT", minimapBorderTop, "RIGHT", -5, 0)
+    timeClockButton:SetWidth(30)
+
+    local gameTimeFrame = GameTimeFrame
+    gameTimeFrame:ClearAllPoints()
+    gameTimeFrame:SetPoint("LEFT", minimapBorderTop, "RIGHT", 3, -1)
+    gameTimeFrame:SetSize(26, 24)
+    gameTimeFrame:SetHitRectInsets(0, 0, 0, 0)
+    gameTimeFrame:GetFontString():Hide()
+
+    UpdateCalendarDate()
+
+    -- Configurar DurabilityFrame correctamente
+    local durabilityFrame = DurabilityFrame
+    if durabilityFrame then
+        durabilityFrame:ClearAllPoints()
+        -- Posicionar debajo del minimap con offset apropiado
+        durabilityFrame:SetPoint("TOP", Minimap, "BOTTOM", 0, 0)
+        -- Ajustar escala para que coincida con el minimap
+        durabilityFrame:SetScale(3 / blipScale)
+    end
+
+    -- 7.3.5 compatibility: MiniMapBattlefieldFrame was removed
+    local minimapBattlefieldFrame = MiniMapBattlefieldFrame
+    if minimapBattlefieldFrame then
+        minimapBattlefieldFrame:ClearAllPoints()
+        minimapBattlefieldFrame:SetPoint("BOTTOMLEFT", 8, 2)
+    end
+
+    local minimapInstanceFrame = MiniMapInstanceDifficulty
+    minimapInstanceFrame:ClearAllPoints()
+    minimapInstanceFrame:SetPoint("TOP", minimapBorderTop, 'BOTTOMRIGHT', -20, 6)
+    minimapInstanceFrame:SetScale(0.85) -- Escala fija para el icono de dificultad
+
+    local minimapTracking = MiniMapTracking
+    minimapTracking:ClearAllPoints()
+    minimapTracking:SetPoint("RIGHT", minimapBorderTop, "LEFT", -3, 0)
+    minimapTracking:SetSize(26, 24)
+
+    local minimapMailFrame = MiniMapMailFrame
+    minimapMailFrame:ClearAllPoints()
+    minimapMailFrame:SetPoint("TOP", minimapTracking, "BOTTOM", 0, -3)
+    minimapMailFrame:SetSize(20, 14)
+    minimapMailFrame:SetHitRectInsets(0, 0, 0, 0)
+
+    local minimapMailIconTexture = MiniMapMailIcon
+    minimapMailIconTexture:SetAllPoints(minimapMailFrame)
+    SetAtlasTexture(minimapMailIconTexture, 'Minimap-Mail-Normal')
+
+    local backgroundTexture = _G[minimapTracking:GetName() .. "Background"]
+    backgroundTexture:SetAllPoints(minimapTracking)
+    SetAtlasTexture(backgroundTexture, 'Minimap-Tracking-Background')
+
+    local minimapTrackingButton = _G[minimapTracking:GetName() .. 'Button']
+    minimapTrackingButton:ClearAllPoints()
+    minimapTrackingButton:SetPoint("CENTER", 0, 0)
+
+    minimapTrackingButton:SetSize(17, 15)
+    minimapTrackingButton:SetHitRectInsets(0, 0, 0, 0)
+
+    --  Enable right-click functionality
+    minimapTrackingButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+
+    local shineTexture = _G[minimapTrackingButton:GetName() .. "Shine"]
+    shineTexture:SetTexture(nil)
+
+    local normalTexture = minimapTrackingButton:GetNormalTexture() or minimapTrackingButton:CreateTexture(nil, "BORDER")
+    normalTexture:SetAllPoints(minimapTrackingButton)
+    SetAtlasTexture(normalTexture, 'Minimap-Tracking-Normal')
+
+    minimapTrackingButton:SetNormalTexture(normalTexture)
+
+    local highlightTexture = minimapTrackingButton:GetHighlightTexture()
+    highlightTexture:SetAllPoints(minimapTrackingButton)
+    SetAtlasTexture(highlightTexture, 'Minimap-Tracking-Highlight')
+
+    local pushedTexture = minimapTrackingButton:GetPushedTexture() or minimapTrackingButton:CreateTexture(nil, "BORDER")
+    pushedTexture:SetAllPoints(minimapTrackingButton)
+    SetAtlasTexture(pushedTexture, 'Minimap-Tracking-Pushed')
+
+    minimapTrackingButton:SetPushedTexture(pushedTexture)
+
+    local minimapFrame = Minimap
+    minimapFrame:ClearAllPoints()
+    minimapFrame:SetPoint("CENTER", minimapCluster, "CENTER", 0, -25)
+    minimapFrame:SetWidth(DEFAULT_MINIMAP_WIDTH / blipScale)
+    minimapFrame:SetHeight(DEFAULT_MINIMAP_HEIGHT / blipScale)
+    minimapFrame:SetScale(blipScale)
+    minimapFrame:SetMaskTexture("Interface\\AddOns\\DragonUI\\assets\\uiminimapmask.tga")
+
+    -- POI (Point of Interest) Custom Textures
+    minimapFrame:SetStaticPOIArrowTexture("Interface\\AddOns\\DragonUI\\assets\\poi-static")
+    minimapFrame:SetCorpsePOIArrowTexture("Interface\\AddOns\\DragonUI\\assets\\poi-corpse")
+    minimapFrame:SetPOIArrowTexture("Interface\\AddOns\\DragonUI\\assets\\poi-guard")
+    minimapFrame:SetPlayerTexture("Interface\\AddOns\\DragonUI\\assets\\poi-player")
+
+    -- Player arrow size (configurable)
+    local playerArrowSize = addon.db and addon.db.profile and addon.db.profile.minimap and
+                                addon.db.profile.minimap.player_arrow_size or 16
+    -- 7.3.5 compatibility: SetPlayerTextureHeight/Width methods don't exist
+    if minimapFrame.SetPlayerTextureHeight then
+        minimapFrame:SetPlayerTextureHeight(playerArrowSize)
+        minimapFrame:SetPlayerTextureWidth(playerArrowSize)
+    end
+
+    -- Blip texture (configurable: new DragonUI icons vs old Blizzard icons)
+    -- ⚠️ 重要: 7.3.5版本的ObjectIcons纹理格式与3.3.5不同
+    -- 即使SetBlipTexture成功,如果纹理内部布局不匹配也会显示错误
+    local useNewBlipStyle = addon.db and addon.db.profile and addon.db.profile.minimap and
+                                addon.db.profile.minimap.blip_skin
+    if useNewBlipStyle == nil then
+        useNewBlipStyle = false -- 7.3.5版本默认使用暴雪图标(兼容性)
+    end
+
+    -- 根据用户设置选择纹理
+    local blipTexture
+    if useNewBlipStyle then
+        blipTexture = 'Interface\\AddOns\\DragonUI\\assets\\objecticons'
+        addon:DebugWarning("Minimap", "使用DragonUI自定义图标 - 注意:此纹理是为3.3.5设计的,在7.3.5中可能布局不正确")
+    else
+        blipTexture = 'Interface\\Minimap\\ObjectIcons'
+        addon:DebugInfo("Minimap", "使用暴雪默认图标样式")
+    end
+    
+    addon:DebugInfo("Minimap", "尝试SetBlipTexture: %s", blipTexture)
+    addon:DebugWarning("Minimap", "重要提示: 7.3.5版本的blip图标纹理格式可能与3.3.5版本不同")
+    addon:DebugWarning("Minimap", "即使API调用成功,图标也可能因纹理布局不匹配而显示错误")
+    
+    -- ⚠️ 重大发现: 在7.3.5中，SetBlipTexture可能根本不起作用!
+    -- 先完全禁用SetBlipTexture调用，看看是否能恢复默认显示
+    addon:DebugError("Minimap", "关键测试: 禁用SetBlipTexture调用")
+    addon:DebugError("Minimap", "原因: 7.3.5可能不支持此API或者调用后导致问题")
+    addon:DebugError("Minimap", "跳过SetBlipTexture调用,使用7.3.5默认的blip系统")
+    
+    -- 完全跳过SetBlipTexture相关调用,测试是否能恢复默认显示
+    
+    -- 诊断信息: 记录当前Minimap的blip相关设置
+    addon:DebugInfo("Minimap", "===== Blip设置诊断 =====")
+    addon:DebugInfo("Minimap", "Minimap:GetZoom() = %s", tostring(Minimap:GetZoom()))
+    addon:DebugInfo("Minimap", "Minimap:GetScale() = %.2f", Minimap:GetScale())
+    addon:DebugInfo("Minimap", "Minimap实际大小: %.1fx%.1f", Minimap:GetWidth(), Minimap:GetHeight())
+    addon:DebugInfo("Minimap", "blipScale变量 = %.2f (此值影响图标缩放!)", blipScale)
+    addon:DebugWarning("Minimap", "⚠️ 如果图标显示变形/拉伸,可能是blipScale值不正确")
+    
+    -- 检查所有可用的blip相关API
+    local blipAPIs = {
+        "SetBlipTexture",
+        "GetBlipTexture", 
+        "SetPlayerTextureHeight",
+        "SetPlayerTextureWidth",
+        "SetUnitPositionScales",
+        "SetArchBlobRingScalar",
+        "SetQuestBlobRingScalar",
+        "SetArchBlobInsideAlpha",
+        "SetArchBlobOutsideAlpha",
+        "SetQuestBlobInsideAlpha",
+        "SetQuestBlobOutsideAlpha"
+    }
+    
+    addon:DebugInfo("Minimap", "7.3.5中可用的Blip API:")
+    for _, apiName in ipairs(blipAPIs) do
+        if Minimap[apiName] then
+            addon:DebugInfo("Minimap", "  ✅ %s: 存在", apiName)
+        else
+            addon:DebugInfo("Minimap", "  ❌ %s: 不存在", apiName)
+        end
+    end
+    
+    local MINIMAP_POINTS = {}
+    for i = 1, Minimap:GetNumPoints() do
+        MINIMAP_POINTS[i] = {Minimap:GetPoint(i)}
+    end
+
+    for _, regions in ipairs {Minimap:GetChildren()} do
+        if regions ~= WatchFrame and regions ~= _G.WatchFrame then
+            if regions:GetObjectType() == "Button" and not IsFrameWhitelisted(regions:GetName()) then
+                regions:SetScale((1 / blipScale) * (1 + ADDON_ORBIT_RADIUS / 100))
+            else
+                regions:SetScale(1 / blipScale)
+            end
+        end
+    end
+    
+    -- ⚠️ 7.3.5中blip显示问题的可能原因:
+    -- 1. SetPlayerTextureHeight/Width API可能不存在或者不起作用
+    -- 2. SetUnitPositionScales可能造成blip变形
+    -- 3. 需要检查是否有其他设置影响了blip显示
+    
+    addon:DebugInfo("Minimap", "===== 检查Blip相关设置 API =====")
+    
+    -- 尝试设置玩家箭头大小
+    if Minimap.SetPlayerTextureHeight and Minimap.SetPlayerTextureWidth then
+        local playerArrowSize = addon.db.profile.minimap.player_arrow_size or 40
+        Minimap:SetPlayerTextureHeight(playerArrowSize)
+        Minimap:SetPlayerTextureWidth(playerArrowSize)
+        addon:DebugInfo("Minimap", "✅ 已设置玩家箭头大小: %d", playerArrowSize)
+    else
+        addon:DebugWarning("Minimap", "❌ SetPlayerTextureHeight/Width API不存在")
+    end
+    
+    -- 注意: SetUnitPositionScales可能导致blip变形!
+    if Minimap.SetUnitPositionScales then
+        -- 尝试设置为1.0(默认值)来避免变形
+        Minimap:SetUnitPositionScales(1.0, 1.0)
+        addon:DebugWarning("Minimap", "⚠️ 已调用SetUnitPositionScales(1.0, 1.0)")
+    else
+        addon:DebugInfo("Minimap", "❌ SetUnitPositionScales API不存在")
+    end
+    
+    -- 7.3.5新增: 任务追踪blob的缩放设置
+    -- 这些API可能会影响小地图上图标的显示!
+    if Minimap.SetArchBlobRingScalar then
+        Minimap:SetArchBlobRingScalar(1.0)
+        addon:DebugInfo("Minimap", "✅ 已设置ArchBlobRingScalar = 1.0")
+    end
+    
+    if Minimap.SetQuestBlobRingScalar then
+        Minimap:SetQuestBlobRingScalar(1.0)
+        addon:DebugInfo("Minimap", "✅ 已设置QuestBlobRingScalar = 1.0")
+    end
+    
+    -- 尝试重置所有可能的blob透明度设置
+    if Minimap.SetArchBlobInsideAlpha then
+        Minimap:SetArchBlobInsideAlpha(0.5)
+        addon:DebugInfo("Minimap", "✅ 已设置ArchBlobInsideAlpha = 0.5")
+    end
+    
+    if Minimap.SetArchBlobOutsideAlpha then
+        Minimap:SetArchBlobOutsideAlpha(1.0)
+        addon:DebugInfo("Minimap", "✅ 已设置ArchBlobOutsideAlpha = 1.0")
+    end
+    
+    if Minimap.SetQuestBlobInsideAlpha then
+        Minimap:SetQuestBlobInsideAlpha(0.5)
+        addon:DebugInfo("Minimap", "✅ 已设置QuestBlobInsideAlpha = 0.5")
+    end
+    
+    if Minimap.SetQuestBlobOutsideAlpha then
+        Minimap:SetQuestBlobOutsideAlpha(1.0)
+        addon:DebugInfo("Minimap", "✅ 已设置QuestBlobOutsideAlpha = 1.0")
+    end
+    
+    addon:DebugInfo("Minimap", "===== Blip设置完成 =====")
+    
+    -- ⚠️⚠️⚠️ 关键发现: 7.3.5中blip显示问题的根本原因 ⚠️⚠️⚠️
+    addon:DebugError("Minimap", "============================================")
+    addon:DebugError("Minimap", "致命问题: 7.3.5中控制blip的API全部不存在!")
+    addon:DebugError("Minimap", "SetPlayerTextureHeight/Width - 不存在")
+    addon:DebugError("Minimap", "SetUnitPositionScales - 不存在")
+    addon:DebugError("Minimap", "")
+    addon:DebugError("Minimap", "这意味着7.3.5使用了完全不同的blip渲染系统")
+    addon:DebugError("Minimap", "SetBlipTexture可能只是个占位API,不起实际作用")
+    addon:DebugError("Minimap", "============================================")
+    
+    -- 尝试找到7.3.5真正控制blip的方法
+    addon:DebugInfo("Minimap", "搜索Minimap对象的所有方法...")
+    local minimapMethods = {}
+    local mt = getmetatable(Minimap)
+    if mt and mt.__index then
+        for k, v in pairs(mt.__index) do
+            if type(v) == "function" then
+                table.insert(minimapMethods, k)
+            end
+        end
+        table.sort(minimapMethods)
+        addon:DebugInfo("Minimap", "Minimap对象共有%d个方法", #minimapMethods)
+        
+        -- 输出前50个方法查看
+        local methodList = ""
+        for i = 1, math.min(50, #minimapMethods) do
+            methodList = methodList .. minimapMethods[i]
+            if i < math.min(50, #minimapMethods) then
+                methodList = methodList .. ", "
+            end
+        end
+        addon:DebugInfo("Minimap", "前50个方法: %s", methodList)
+    end
+
+    for _, points in ipairs(MINIMAP_POINTS) do
+        Minimap:SetPoint(points[1], points[2], points[3], points[4] / blipScale, points[5] / blipScale)
+    end
+    function GetMinimapShape()
+        return "ROUND"
+    end
+
+    -- Enable mouse wheel zooming on minimap
+    minimapFrame:EnableMouseWheel(true)
+    minimapFrame:SetScript("OnMouseWheel", function(self, delta)
+        if delta > 0 then
+            -- Scroll up = Zoom in
+            Minimap_ZoomIn()
+        else
+            -- Scroll down = Zoom out
+            Minimap_ZoomOut()
+        end
+    end)
+
+    local minimapBackdropTexture = MinimapBackdrop
+    minimapBackdropTexture:ClearAllPoints()
+    minimapBackdropTexture:SetPoint("CENTER", minimapFrame, "CENTER", 0, 3)
+
+    local minimapBorderTexture = MinimapBorder
+    minimapBorderTexture:Hide()
+    if not Minimap.Circle then
+        Minimap.Circle = MinimapBackdrop:CreateTexture(nil, 'ARTWORK')
+
+        Minimap.Circle:SetSize(BORDER_SIZE, BORDER_SIZE)
+        Minimap.Circle:SetPoint('CENTER', Minimap, 'CENTER')
+        Minimap.Circle:SetTexture("Interface\\AddOns\\DragonUI\\assets\\uiminimapborder.tga")
+    end
+
+    local zoomInButton = MinimapZoomIn
+    zoomInButton:ClearAllPoints()
+    zoomInButton:SetPoint("BOTTOMRIGHT", 0, 15)
+
+    zoomInButton:SetSize(25, 24)
+    zoomInButton:SetHitRectInsets(0, 0, 0, 0)
+
+    normalTexture = zoomInButton:GetNormalTexture()
+    normalTexture:SetAllPoints(zoomInButton)
+    SetAtlasTexture(normalTexture, 'Minimap-ZoomIn-Normal')
+
+    highlightTexture = zoomInButton:GetHighlightTexture()
+    highlightTexture:SetAllPoints(zoomInButton)
+    SetAtlasTexture(highlightTexture, 'Minimap-ZoomIn-Highlight')
+
+    pushedTexture = zoomInButton:GetPushedTexture()
+    pushedTexture:SetAllPoints(zoomInButton)
+    SetAtlasTexture(pushedTexture, 'Minimap-ZoomIn-Pushed')
+
+    local disabledTexture = zoomInButton:GetDisabledTexture()
+    disabledTexture:SetAllPoints(zoomInButton)
+    SetAtlasTexture(disabledTexture, 'Minimap-ZoomIn-Pushed')
+
+    local zoomOutButton = MinimapZoomOut
+    zoomOutButton:ClearAllPoints()
+    zoomOutButton:SetPoint("BOTTOMRIGHT", -22, 0)
+
+    zoomOutButton:SetSize(20, 12)
+    zoomOutButton:SetHitRectInsets(0, 0, 0, 0)
+
+    normalTexture = zoomOutButton:GetNormalTexture()
+    normalTexture:SetAllPoints(zoomOutButton)
+    SetAtlasTexture(normalTexture, 'Minimap-ZoomOut-Normal')
+
+    highlightTexture = zoomOutButton:GetHighlightTexture()
+    highlightTexture:SetAllPoints(zoomOutButton)
+    SetAtlasTexture(highlightTexture, 'Minimap-ZoomOut-Highlight')
+
+    pushedTexture = zoomOutButton:GetPushedTexture()
+    pushedTexture:SetAllPoints(zoomOutButton)
+    SetAtlasTexture(pushedTexture, 'Minimap-ZoomOut-Pushed')
+
+    disabledTexture = zoomOutButton:GetDisabledTexture()
+    disabledTexture:SetAllPoints(zoomOutButton)
+    SetAtlasTexture(disabledTexture, 'Minimap-ZoomOut-Pushed')
+
+    -- Define the function locally within ReplaceBlizzardFrame scope
+    local function SetupWorldStateCaptureBar()
+        local WorldStateCaptureBar1 = _G['WorldStateCaptureBar1']
+        if WorldStateCaptureBar1 then
+            WorldStateCaptureBar1:ClearAllPoints()
+            WorldStateCaptureBar1:SetPoint('CENTER', minimapFrame, 'BOTTOM', 0, -20)
+
+            -- Hook SetPoint to prevent other code from overriding our positioning - HACKY
+            -- SOMETHING likely Blizzard frame is trying to reposition the bar periodically so we need to block it
+            local originalSetPoint = WorldStateCaptureBar1.SetPoint
+            WorldStateCaptureBar1.SetPoint = function(self, ...)
+                -- Only allow our specific positioning, ignore all others
+                if select(1, ...) == 'CENTER' and select(2, ...) == minimapFrame and select(3, ...) == 'BOTTOM' then
+                    originalSetPoint(self, ...)
+                end
+                -- Silently ignore all other SetPoint calls
+            end
+            return true
+        end
+        return false
+    end
+
+    -- Try to setup immediately
+    if not SetupWorldStateCaptureBar() then
+        -- If frame doesn't exist yet, wait for it to be created
+        local checkFrame = CreateFrame("Frame")
+        checkFrame:RegisterEvent("ADDON_LOADED")
+        checkFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+        checkFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+        checkFrame:SetScript("OnEvent", function(self, event)
+            if SetupWorldStateCaptureBar() then
+                -- Successfully set up, unregister events
+                self:UnregisterAllEvents()
+            end
+        end)
+    end
+
+    --  Add right-click functionality to clear tracking
+    minimapTrackingButton:SetScript("OnClick", function(self, button)
+        if button == "RightButton" then
+            -- Set tracking to none
+            SetTracking()
+            -- Update the tracking display
+            MinimapModule:UpdateTrackingIcon()
+
+        else
+            -- Left click - use default behavior
+            ToggleDropDownMenu(1, nil, MiniMapTrackingDropDown, "MiniMapTrackingButton")
+        end
+    end)
+
+    --  CONTROLAR MANUALMENTE EL MOVIMIENTO DEL BOTÓN
+    minimapTrackingButton:SetScript("OnMouseDown", function(self, button)
+        if button == "LeftButton" then
+            -- Mover el icono/botón manualmente - TÚ CONTROLAS CUÁNTO
+            if MiniMapTrackingIcon and MiniMapTrackingIcon:GetAlpha() > 0 then
+                -- Mover icono OLD STYLE: 1 pixel abajo-derecha (sutil)
+                MiniMapTrackingIcon:ClearAllPoints()
+                MiniMapTrackingIcon:SetPoint('CENTER', MiniMapTracking, 'CENTER', 2, -2)
+            end
+        end
+    end)
+
+    minimapTrackingButton:SetScript("OnMouseUp", function(self, button)
+        if button == "LeftButton" then
+            -- Restaurar posición original cuando sueltas
+            if MiniMapTrackingIcon and MiniMapTrackingIcon:GetAlpha() > 0 then
+                MiniMapTrackingIcon:ClearAllPoints()
+                MiniMapTrackingIcon:SetPoint('CENTER', MiniMapTracking, 'CENTER', 0, 0)
+            end
+        end
+    end)
+
+    --  HOOK PARA RESETEAR POSICIÓN DEL ICONO DESPUÉS DE CLICKS
+    local function ResetTrackingIconPosition()
+        if MiniMapTrackingIcon and MiniMapTrackingIcon:GetAlpha() > 0 then
+            MiniMapTrackingIcon:ClearAllPoints()
+            MiniMapTrackingIcon:SetPoint('CENTER', MiniMapTracking, 'CENTER', 0, 0)
+        end
+    end
+
+    -- Hook al cierre del dropdown (legacy - mantenido por compatibilidad)
+    hooksecurefunc("CloseDropDownMenus", ResetTrackingIconPosition)
+
+    -- Setup secure hooks after frame modifications
+    SetupSecureHooks()
+
+end -- End of ReplaceBlizzardFrame function
+
+local function CreateMinimapBorderFrame(width, height)
+    local minimapBorderFrame = CreateFrame('Frame', UIParent)
+    minimapBorderFrame:SetSize(width, height)
+    minimapBorderFrame:SetScript("OnUpdate", function(self)
+        local angle = GetPlayerFacing()
+        self.border:SetRotation(angle)
+    end)
+
+    do
+        local texture = minimapBorderFrame:CreateTexture(nil, "BORDER")
+        texture:SetAllPoints(minimapBorderFrame)
+        texture:SetTexture("Interface\\AddOns\\DragonUI\\Textures\\Minimap\\MinimapBorder.blp")
+
+        minimapBorderFrame.border = texture
+    end
+
+    minimapBorderFrame:Hide()
+    return minimapBorderFrame
+end
+
+-- Funciones de fade para hover effect
+local function fadein(self)
+    securecall(UIFrameFadeIn, self, 0.2, self:GetAlpha(), 1.0)
+end
+
+local function fadeout(self)
+    securecall(UIFrameFadeOut, self, 0.2, self:GetAlpha(), 0.2)
+end
+
+-- Función para aplicar skin personalizado a iconos de addons (COPIA EXACTA del oldminimapcore.lua)
+local function ApplyAddonIconSkin(button)
+    if not button or button:GetObjectType() ~= 'Button' then
+        return
+    end
+
+    local frameName = button:GetName()
+    --  USAR LA VERIFICACIÓN EXACTA DEL OLDMINIMAPCORE.LUA
+    if IsFrameWhitelisted(frameName) then
+        return
+    end
+
+    -- Procesar texturas EXACTO como oldminimapcore.lua
+    for index = 1, button:GetNumRegions() do
+        local region = select(index, button:GetRegions())
+        if region:GetObjectType() == 'Texture' then
+            local name = region:GetTexture()
+            if name and (name:find('Border') or name:find('Background') or name:find('AlphaMask')) then
+                region:SetTexture(nil)
+            else
+                region:ClearAllPoints()
+                region:SetPoint('TOPLEFT', button, 'TOPLEFT', 2, -2)
+                region:SetPoint('BOTTOMRIGHT', button, 'BOTTOMRIGHT', -2, 2)
+                region:SetTexCoord(0.1, 0.9, 0.1, 0.9)
+                region:SetDrawLayer('ARTWORK')
+                --  FORZAR TAMAÑO DEL ICONO PARA QUE COINCIDA CON EL TEXCOORD
+                region:SetSize(18, 18)
+                if frameName == 'PS_MinimapButton' then
+                    region.SetPoint = addon._noop
+                end
+            end
+        end
+    end
+
+    -- Limpiar texturas del botón EXACTO como oldminimapcore.lua
+    button:SetPushedTexture(nil)
+    button:SetHighlightTexture(nil)
+    button:SetDisabledTexture(nil)
+    button:SetSize(21, 21)
+
+    -- Aplicar border EXACTO como oldminimapcore.lua
+    button.circle = button:CreateTexture(nil, 'OVERLAY')
+    button.circle:SetSize(23, 23)
+    button.circle:SetPoint('CENTER', button)
+    button.circle:SetTexture("Interface\\AddOns\\DragonUI\\assets\\border_buttons.tga")
+
+    --  VERIFICACIÓN SEGURA DE CONFIGURACIÓN
+    local fadeEnabled = false
+
+    -- Primero verificar DragonUI database (principal)
+    if addon.db and addon.db.profile and addon.db.profile.minimap then
+        fadeEnabled = addon.db.profile.minimap.addon_button_fade or false
+    end
+
+    if fadeEnabled then
+        button:SetAlpha(0.2)
+        button:HookScript('OnEnter', fadein)
+        button:HookScript('OnLeave', fadeout)
+    else
+        button:SetAlpha(1)
+    end
+end
+
+--  BORDER REMOVAL: Aplicar skin a iconos (SIMPLE como oldminimapcore.lua)
+local function RemoveAllMinimapIconBorders()
+
+    -- PVP/Battlefield borders
+    if MiniMapBattlefieldIcon then
+        MiniMapBattlefieldIcon:Hide()
+    end
+    if MiniMapBattlefieldBorder then
+        MiniMapBattlefieldBorder:Hide()
+    end
+
+    -- LFG border
+    if MiniMapLFGFrameBorder then
+        MiniMapLFGFrameBorder:SetTexture(nil)
+    end
+
+    --  APLICAR SKIN SIMPLE A TODOS LOS BOTONES
+    local function ApplySkinsToAllButtons()
+        -- Verificar si el skinning está habilitado
+        local skinEnabled = addon.db and addon.db.profile and addon.db.profile.minimap and
+                                addon.db.profile.minimap.addon_button_skin
+
+        if not skinEnabled then
+            return
+        end
+
+        for i = 1, Minimap:GetNumChildren() do
+            local child = select(i, Minimap:GetChildren())
+            if child and child:GetObjectType() == "Button" then
+                ApplyAddonIconSkin(child)
+            end
+        end
+    end
+
+    -- Aplicar inmediatamente
+    ApplySkinsToAllButtons()
+end
+
+--  PVP STYLING: Estilizar frame PVP con faction detection (del minimapa_old.lua)
+local function StylePVPBattlefieldFrame()
+    if not MiniMapBattlefieldFrame then
+        return
+    end
+
+    -- Configurar el frame PVP como en minimapa_old.lua
+    MiniMapBattlefieldFrame:SetSize(44, 44)
+    MiniMapBattlefieldFrame:ClearAllPoints()
+    MiniMapBattlefieldFrame:SetPoint('BOTTOMLEFT', Minimap, 0, 18)
+    MiniMapBattlefieldFrame:SetNormalTexture('')
+    MiniMapBattlefieldFrame:SetPushedTexture('')
+
+    -- Detectar facción del jugador y aplicar texturas apropiadas
+    local faction = string.lower(UnitFactionGroup('player'))
+
+    -- Aplicar texturas usando SetAtlasTexture
+    if MiniMapBattlefieldFrame:GetNormalTexture() then
+        SetAtlasTexture(MiniMapBattlefieldFrame:GetNormalTexture(), 'Minimap-PVP-' .. faction .. '-Normal')
+    end
+    if MiniMapBattlefieldFrame:GetPushedTexture() then
+        SetAtlasTexture(MiniMapBattlefieldFrame:GetPushedTexture(), 'Minimap-PVP-' .. faction .. '-Pushed')
+    end
+
+    -- Configurar script de click como en minimapa_old.lua
+    MiniMapBattlefieldFrame:SetScript('OnClick', function(self, button)
+        GameTooltip:Hide()
+        if MiniMapBattlefieldFrame.status == "active" then
+            if button == "RightButton" then
+                ToggleDropDownMenu(1, nil, MiniMapBattlefieldDropDown, "MiniMapBattlefieldFrame", 0, -5)
+            elseif IsShiftKeyDown() then
+                ToggleBattlefieldMinimap()
+            else
+                ToggleWorldStateScoreFrame()
+            end
+        elseif button == "RightButton" then
+            ToggleDropDownMenu(1, nil, MiniMapBattlefieldDropDown, "MiniMapBattlefieldFrame", 0, -5)
+        else
+            --  SIMPLE: Usar la misma función que el botón PVP del micromenu
+            TogglePVPFrame()
+        end
+    end)
+end
+
+local function RemoveBlizzardFrames()
+    if MiniMapWorldMapButton then
+        MiniMapWorldMapButton:Hide()
+        MiniMapWorldMapButton:UnregisterAllEvents()
+        MiniMapWorldMapButton:SetScript("OnClick", nil)
+        MiniMapWorldMapButton:SetScript("OnEnter", nil)
+        MiniMapWorldMapButton:SetScript("OnLeave", nil)
+    end
+
+    local blizzFrames =
+        {MiniMapTrackingIcon, MiniMapTrackingIconOverlay, MiniMapMailBorder, MiniMapTrackingButtonBorder}
+
+    for _, frame in pairs(blizzFrames) do
+        frame:SetAlpha(0)
+    end
+
+    --  LLAMAR A LAS NUEVAS FUNCIONES
+    RemoveAllMinimapIconBorders()
+    StylePVPBattlefieldFrame()
+end
+
+local function Minimap_UpdateRotationSetting()
+    local minimapBorder = MinimapBorder
+    if GetCVar("rotateMinimap") == "1" then
+        if MinimapModule.borderFrame then
+            MinimapModule.borderFrame:Show()
+        end
+        minimapBorder:Hide()
+    else
+        if MinimapModule.borderFrame then
+            MinimapModule.borderFrame:Hide()
+        end
+        minimapBorder:Show()
+    end
+
+    MinimapNorthTag:Hide()
+    MinimapCompassTexture:Hide()
+end
+
+local selectedRaidDifficulty
+local allowedRaidDifficulty
+
+--  TRACKING UPDATE FUNCTION - Using exact logic from minimap_map.lua with atlas textures
+function MinimapModule:UpdateTrackingIcon()
+    -- 7.3.5 compatibility: GetTrackingTexture may not exist
+    local texture = nil
+    if GetTrackingTexture then
+        texture = GetTrackingTexture()
+    end
+
+    local useOldStyle = addon.db and addon.db.profile and addon.db.profile.minimap and
+                            addon.db.profile.minimap.tracking_icons
+
+    --  VERIFICACIÓN DE SEGURIDAD
+    if not addon or not addon.db then
+        return
+    end
+
+    if useOldStyle == nil then
+        useOldStyle = false
+    end
+
+    --  VERIFICACIÓN ADICIONAL: Asegurar que los frames existen
+    if not MiniMapTrackingIcon or not MiniMapTrackingButton then
+        return
+    end
+
+    if useOldStyle then
+
+        if texture == 'Interface\\Minimap\\Tracking\\None' then
+
+            -- OLD STYLE + No tracking = Mostrar icono de lupa por defecto
+            MiniMapTrackingIcon:SetTexture('')
+            MiniMapTrackingIcon:SetAlpha(0)
+
+            -- Mostrar el botón moderno como "icono de lupa" por defecto
+            local normalTexture = MiniMapTrackingButton:GetNormalTexture()
+            if normalTexture then
+                SetAtlasTexture(normalTexture, 'Minimap-Tracking-Normal')
+            end
+
+            local pushedTexture = MiniMapTrackingButton:GetPushedTexture()
+            if pushedTexture then
+                SetAtlasTexture(pushedTexture, 'Minimap-Tracking-Pushed')
+            end
+
+            local highlightTexture = MiniMapTrackingButton:GetHighlightTexture()
+            if highlightTexture then
+                SetAtlasTexture(highlightTexture, 'Minimap-Tracking-Highlight')
+            end
+        else
+
+            -- OLD STYLE + Tracking active = Mostrar el icono específico del tracking
+            MiniMapTrackingIcon:SetTexture(texture)
+            MiniMapTrackingIcon:SetTexCoord(0, 1, 0, 1)
+            MiniMapTrackingIcon:SetSize(20, 20)
+            MiniMapTrackingIcon:SetAlpha(1)
+            MiniMapTrackingIcon:ClearAllPoints()
+            MiniMapTrackingIcon:SetPoint('CENTER', MiniMapTracking, 'CENTER', 0, 0)
+
+            -- Limpiar texturas del botón para que no interfieran con el icono específico
+            MiniMapTrackingButton:SetNormalTexture('')
+            MiniMapTrackingButton:SetPushedTexture('')
+            local highlightTexture = MiniMapTrackingButton:GetHighlightTexture()
+            if highlightTexture then
+                highlightTexture:SetTexture('')
+            end
+        end
+    else
+
+        --  MODERN STYLE: 显示现代按钮+实际追踪图标
+
+        -- Si hay actual el追踪图标，显示它
+        if texture and texture ~= 'Interface\\Minimap\\Tracking\\None' then
+            MiniMapTrackingIcon:SetTexture(texture)
+            MiniMapTrackingIcon:SetTexCoord(0, 1, 0, 1)
+            MiniMapTrackingIcon:SetSize(20, 20)
+            MiniMapTrackingIcon:SetAlpha(1)
+            MiniMapTrackingIcon:ClearAllPoints()
+            MiniMapTrackingIcon:SetPoint('CENTER', MiniMapTracking, 'CENTER', 0, 0)
+            
+            -- 清除按钮纹理，让追踪图标显示
+            MiniMapTrackingButton:SetNormalTexture('')
+            MiniMapTrackingButton:SetPushedTexture('')
+            local highlightTexture = MiniMapTrackingButton:GetHighlightTexture()
+            if highlightTexture then
+                SetAtlasTexture(highlightTexture, 'Minimap-Tracking-Highlight')
+            end
+        else
+            -- 没有追踪时，清除图标，显示默认按钮
+            MiniMapTrackingIcon:SetTexture('')
+            MiniMapTrackingIcon:SetAlpha(0)
+            
+            -- 使用RetailUI默认按钮样式
+            local normalTexture = MiniMapTrackingButton:GetNormalTexture()
+            if normalTexture then
+                SetAtlasTexture(normalTexture, 'Minimap-Tracking-Normal')
+            end
+
+            local pushedTexture = MiniMapTrackingButton:GetPushedTexture()
+            if pushedTexture then
+                SetAtlasTexture(pushedTexture, 'Minimap-Tracking-Pushed')
+            end
+
+            local highlightTexture = MiniMapTrackingButton:GetHighlightTexture()
+            if highlightTexture then
+                SetAtlasTexture(highlightTexture, 'Minimap-Tracking-Highlight')
+            end
+        end
+
+    end
+
+    -- Siempre ocultar overlay
+    if MiniMapTrackingIconOverlay then
+        MiniMapTrackingIconOverlay:SetAlpha(0)
+    end
+end
+
+local function MiniMapInstanceDifficulty_OnEvent(self)
+    local _, instanceType, difficulty, _, maxPlayers, playerDifficulty, isDynamicInstance = GetInstanceInfo()
+    if (instanceType == "party" or instanceType == "raid") and not (difficulty == 1 and maxPlayers == 5) then
+        local isHeroic = false
+        if instanceType == "party" and difficulty == 2 then
+            isHeroic = true
+        elseif instanceType == "raid" then
+            if isDynamicInstance then
+                selectedRaidDifficulty = difficulty
+                if playerDifficulty == 1 then
+                    if selectedRaidDifficulty <= 2 then
+                        selectedRaidDifficulty = selectedRaidDifficulty + 2
+                    end
+                    isHeroic = true
+                end
+                -- if modified difficulty is normal then you are allowed to select heroic, and vice-versa
+                if selectedRaidDifficulty == 1 then
+                    allowedRaidDifficulty = 3
+                elseif selectedRaidDifficulty == 2 then
+                    allowedRaidDifficulty = 4
+                elseif selectedRaidDifficulty == 3 then
+                    allowedRaidDifficulty = 1
+                elseif selectedRaidDifficulty == 4 then
+                    allowedRaidDifficulty = 2
+                end
+                allowedRaidDifficulty = "RAID_DIFFICULTY" .. allowedRaidDifficulty
+            elseif difficulty > 2 then
+                isHeroic = true
+            end
+        end
+
+        MiniMapInstanceDifficultyText:SetText(maxPlayers)
+
+        -- Posicionar texto: ligeramente a la izquierda y hacia abajo (escala 0.85 maneja el tamaño)
+        MiniMapInstanceDifficultyText:ClearAllPoints()
+        MiniMapInstanceDifficultyText:SetPoint("CENTER", self, "CENTER", -1, -8)
+
+        local minimapInstanceTexture = MiniMapInstanceDifficultyTexture
+        self:SetScale(0.85) -- Escala fija para el icono de dificultad
+        self:Show()
+    else
+        self:Hide()
+    end
+end
+
+-- =================================================================
+-- MODULE ENABLE/DISABLE SYSTEM
+-- =================================================================
+
+function MinimapModule:StoreOriginalSettings()
+    -- Store original Blizzard minimap settings
+    if MinimapCluster then
+        local point, relativeTo, relativePoint, xOfs, yOfs = MinimapCluster:GetPoint()
+        self.originalMinimapSettings = {
+            scale = MinimapCluster:GetScale(),
+            point = point,
+            relativeTo = relativeTo,
+            relativePoint = relativePoint,
+            xOfs = xOfs,
+            yOfs = yOfs,
+            isStored = true
+        }
+    end
+
+    -- NUEVO: Store original DurabilityFrame settings
+    if DurabilityFrame then
+        local point, relativeTo, relativePoint, xOfs, yOfs = DurabilityFrame:GetPoint(1)
+        self.originalMinimapSettings.durability = {
+            scale = DurabilityFrame:GetScale(),
+            point = point,
+            relativeTo = relativeTo,
+            relativePoint = relativePoint,
+            xOfs = xOfs,
+            yOfs = yOfs
+        }
+    end
+
+    -- Store that we need to restore to Blizzard default mask
+    if not self.originalMask then
+        self.originalMask = "Textures\\MinimapMask" -- Standard Blizzard default
+
+    end
+end
+
+function MinimapModule:ApplyMinimapSystem()
+    if self.applied then
+        return -- Already applied
+    end
+
+    -- Check module enabled state
+    if not IsModuleEnabled() then
+        return
+    end
+
+    -- Check combat lockdown
+    if InCombatLockdown() then
+        self.registeredEvents.PLAYER_REGEN_ENABLED = function()
+            self:ApplyMinimapSystem()
+        end
+        return
+    end
+
+    -- Store original settings before applying DragonUI changes
+    self:StoreOriginalSettings()
+    
+    -- Initialize the DragonUI minimap system
+    self:InitializeMinimapSystem()
+    
+    self.applied = true
+    self.isEnabled = true -- Legacy compatibility
+    
+
+end
+
+-- EVENT HANDLING: Proper event registration/cleanup
+local function RegisterModuleEvents()
+    if MinimapModule.registeredEvents.PLAYER_REGEN_ENABLED then
+        local eventFrame = CreateFrame("Frame")
+        eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+        eventFrame:SetScript("OnEvent", function(self, event)
+            if MinimapModule.registeredEvents.PLAYER_REGEN_ENABLED then
+                MinimapModule.registeredEvents.PLAYER_REGEN_ENABLED()
+                MinimapModule.registeredEvents.PLAYER_REGEN_ENABLED = nil
+                self:UnregisterAllEvents()
+            end
+        end)
+        MinimapModule.frames.eventFrame = eventFrame
+    end
+end
+
+function MinimapModule:RestoreMinimapSystem()
+    if not self.applied then
+        return -- Already restored
+    end
+
+    -- Check combat lockdown
+    if InCombatLockdown() then
+        self.registeredEvents.PLAYER_REGEN_ENABLED = function()
+            self:RestoreMinimapSystem()
+        end
+        return
+    end
+
+    -- Hide DragonUI frames
+    if self.minimapFrame then
+        self.minimapFrame:Hide()
+        self.frames.minimapFrame = nil
+    end
+    if self.borderFrame then
+        self.borderFrame:Hide()
+        self.frames.borderFrame = nil
+    end
+
+    -- Restore original MinimapCluster state
+    if MinimapCluster and self.originalStates.MinimapCluster then
+        MinimapCluster:ClearAllPoints()
+        local originalState = self.originalStates.MinimapCluster
+        for _, point in ipairs(originalState.points) do
+            MinimapCluster:SetPoint(unpack(point))
+        end
+        MinimapCluster:SetScale(originalState.scale)
+    elseif MinimapCluster and self.originalMinimapSettings.isStored then
+        -- Fallback to legacy method
+        MinimapCluster:ClearAllPoints()
+        MinimapCluster:SetPoint(self.originalMinimapSettings.point or "TOPRIGHT",
+            self.originalMinimapSettings.relativeTo or UIParent,
+            self.originalMinimapSettings.relativePoint or "TOPRIGHT", self.originalMinimapSettings.xOfs or -16,
+            self.originalMinimapSettings.yOfs or -116)
+        MinimapCluster:SetScale(self.originalMinimapSettings.scale or 1.0)
+    end
+
+    -- Restore original DurabilityFrame state
+    if DurabilityFrame and self.originalStates.DurabilityFrame then
+        DurabilityFrame:ClearAllPoints()
+        local originalState = self.originalStates.DurabilityFrame
+        for _, point in ipairs(originalState.points) do
+            DurabilityFrame:SetPoint(unpack(point))
+        end
+        DurabilityFrame:SetScale(originalState.scale)
+    elseif DurabilityFrame and self.originalMinimapSettings.durability then
+        -- Fallback to legacy method
+        local durSettings = self.originalMinimapSettings.durability
+        DurabilityFrame:ClearAllPoints()
+        DurabilityFrame:SetPoint(
+            durSettings.point or "TOPLEFT",
+            durSettings.relativeTo or MinimapCluster,
+            durSettings.relativePoint or "BOTTOMLEFT",
+            durSettings.xOfs or -15,
+            durSettings.yOfs or -10
+        )
+        DurabilityFrame:SetScale(durSettings.scale or 1.0)
+    end
+
+    -- Restore other original states
+    if MiniMapWorldMapButton then
+        MiniMapWorldMapButton:Show()
+    end
+    if MinimapBorder then
+        MinimapBorder:Show()
+    end
+    if Minimap.Circle then
+        Minimap.Circle:Hide()
+    end
+
+    -- CRITICAL: Restore original Blizzard minimap mask
+    if Minimap and self.originalMask then
+        Minimap:SetMaskTexture(self.originalMask)
+    end
+
+    -- Cleanup hooks (tracked for debugging)
+    CleanupSecureHooks()
+
+    self.applied = false
+    self.isEnabled = false -- Legacy compatibility
+    
+    print("DragonUI: Minimap module restored to Blizzard defaults")
+end
+
+function MinimapModule:InitializeMinimapSystem()
+    -- Load TimeManager addon if not loaded
+    if not IsAddOnLoaded('Blizzard_TimeManager') then
+        LoadAddOn('Blizzard_TimeManager')
+    end
+
+    addon:DebugInfo("Minimap", "===== 初始化小地图系统 =====")
+    addon:DebugInfo("Minimap", "blip_skin设置: %s", tostring(addon.db.profile.minimap.blip_skin))
+    addon:DebugInfo("Minimap", "WoW版本: %s", GetBuildInfo())
+    
+    -- 检查Minimap API
+    addon:DebugInfo("Minimap", "检查Minimap API...")
+    addon:DebugInfo("Minimap", "  - SetBlipTexture: %s", Minimap.SetBlipTexture and "存在" or "不存在")
+    addon:DebugInfo("Minimap", "  - GetBlipTexture: %s", Minimap.GetBlipTexture and "存在" or "不存在")
+    
+    -- 验证DragonUI自定义纹理是否存在
+    addon:DebugInfo("Minimap", "验证DragonUI纹理文件...")
+    local dragonUITexValid = ValidateBlipTexture('Interface\\AddOns\\DragonUI\\assets\\objecticons')
+    local blizzTexValid = ValidateBlipTexture('Interface\\Minimap\\ObjectIcons')
+    
+    if dragonUITexValid then
+        addon:DebugInfo("Minimap", "DragonUI objecticons.tga 文件存在且有效")
+    else
+        addon:DebugWarning("Minimap", "DragonUI objecticons.tga 文件不存在或无效")
+    end
+    
+    if blizzTexValid then
+        addon:DebugInfo("Minimap", "暴雪默认ObjectIcons有效")
+    else
+        addon:DebugWarning("Minimap", "暴雪默认ObjectIcons无效")
+    end
+    
+    self.minimapFrame = CreateUIFrame(230, 230, "MinimapFrame")
+
+    --  REGISTRO AUTOMÁTICO EN EL SISTEMA CENTRALIZADO
+    addon:RegisterEditableFrame({
+        name = "minimap",
+        frame = self.minimapFrame,
+        blizzardFrame = MinimapCluster,
+        configPath = {"widgets", "minimap"},
+        onHide = function()
+            self:UpdateWidgets() -- Aplicar nueva configuración al salir del editor
+        end,
+        module = self
+    })
+
+    local defaultX, defaultY = -7, 0
+    local widgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.minimap
+
+    if widgetConfig then
+        self.minimapFrame:SetPoint(widgetConfig.anchor or "TOPRIGHT", UIParent, widgetConfig.anchor or "TOPRIGHT",
+            widgetConfig.posX or defaultX, widgetConfig.posY or defaultY)
+    else
+        self.minimapFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", defaultX, defaultY)
+    end
+
+    self.borderFrame = CreateMinimapBorderFrame(232, 232)
+    self.borderFrame:SetPoint("CENTER", MinimapBorder, "CENTER", 0, -2)
+
+    RemoveBlizzardFrames()
+    ReplaceBlizzardFrame(self.minimapFrame)
+
+    --  AÑADIR ESTA LÍNEA PARA APLICAR TODAS LAS CONFIGURACIONES AL INICIO
+    self:UpdateSettings()
+
+    -- Hook tracking changes to update icon automatically
+    MiniMapTrackingButton:HookScript("OnEvent", function()
+        self:UpdateTrackingIcon()
+    end)
+
+    -- Initial tracking icon update
+    self:UpdateTrackingIcon()
+
+end
+
+function MinimapModule:Initialize()
+    if self.initialized then
+        return -- Already initialized
+    end
+    
+    -- Check if minimap module is enabled
+    if not IsModuleEnabled() then
+        -- Don't apply any DragonUI modifications when disabled
+        return
+    end
+
+    -- Only apply DragonUI modifications if module is enabled
+    self:ApplyMinimapSystem()
+    
+    self.initialized = true
+end
+
+-- Eliminar las funciones que no existen más y convertir en funciones DragonUI
+function MinimapModule:UpdateSettings()
+    local scale = addon.db.profile.minimap.scale or 1.0
+
+    if self.minimapFrame then
+        --  MANEJAR POSICIÓN: Prioridad a widgets (editor mode), fallback a x,y
+        local x, y, anchor
+
+        -- 1. Intentar usar posición del editor mode (widgets)
+        if addon.db.profile.widgets and addon.db.profile.widgets.minimap then
+            local widgetConfig = addon.db.profile.widgets.minimap
+            anchor = widgetConfig.anchor or "TOPRIGHT"
+            x = widgetConfig.posX or 0
+            y = widgetConfig.posY or 0
+
+        else
+            -- 2. Fallback a posición legacy (x, y)
+            x = addon.db.profile.minimap.x or -7
+            y = addon.db.profile.minimap.y or 0
+            anchor = "TOPRIGHT"
+
+        end
+
+        -- NUEVO: Actualizar posición del DurabilityFrame cuando cambien las configuraciones
+        if DurabilityFrame then
+            DurabilityFrame:ClearAllPoints()
+            DurabilityFrame:SetPoint("TOP", Minimap, "BOTTOM", 0, 0)
+            DurabilityFrame:SetScale(scale)
+        end
+        
+        --  APLICAR POSICIÓN
+        self.minimapFrame:ClearAllPoints()
+        self.minimapFrame:SetPoint(anchor, UIParent, anchor, x, y)
+
+        --  APLICAR ESCALA (funciona perfecto ahora)
+        if MinimapCluster then
+            MinimapCluster:SetScale(scale)
+
+        end
+
+        if self.borderFrame then
+            self.borderFrame:SetScale(scale)
+        end
+
+        --  APLICAR TODAS LAS CONFIGURACIONES
+        self:ApplyAllSettings()
+    end
+
+    --  CONFIGURACIONES GLOBALES DEL MINIMAP
+    if Minimap then
+        -- ⚠️ 7.3.5禁用: 不要调用SetBlipTexture,让客户端使用默认的blip系统
+        addon:DebugError("Minimap", "UpdateSettings - 跳过SetBlipTexture调用(在7.3.5中不起作用)")
+        
+        --[[ 7.3.5中禁用SetBlipTexture
+        -- Apply blip texture based on user setting (new vs old style)
+        local useNewBlipStyle = addon.db.profile.minimap.blip_skin
+        if useNewBlipStyle == nil then
+            useNewBlipStyle = false -- 7.3.5版本默认使用暴雪图标(兼容性)
+        end
+
+        -- 根据用户设置选择纹理
+        local blipTexture
+        if useNewBlipStyle then
+            blipTexture = 'Interface\\AddOns\\DragonUI\\assets\\objecticons'
+            addon:DebugWarning("Minimap", "UpdateSettings - 使用DragonUI自定义图标(仅3.3.5设计,在7.3.5中可能不正确)")
+        else
+            blipTexture = 'Interface\\Minimap\\ObjectIcons'
+            addon:DebugInfo("Minimap", "✅ UpdateSettings - 使用暴雪默认图标样式")
+        end
+        
+        addon:DebugInfo("Minimap", "UpdateSettings - SetBlipTexture: %s", blipTexture)
+        
+        -- 尝试设置纹理并捕获错误
+        local success, err = pcall(function()
+            Minimap:SetBlipTexture(blipTexture)
+        end)
+        
+        if not success then
+            addon:DebugError("Minimap", "UpdateSettings - 设置失败: %s", tostring(err))
+            Minimap:SetBlipTexture('Interface\\Minimap\\ObjectIcons')
+        else
+            addon:DebugInfo("Minimap", "UpdateSettings - 纹理设置成功")
+        end
+        --]]
+
+        local playerArrowSize = addon.db.profile.minimap.player_arrow_size
+        if playerArrowSize then
+            -- 7.3.5 compatibility: SetPlayerTextureHeight/Width methods don't exist
+            if Minimap.SetPlayerTextureHeight then
+                Minimap:SetPlayerTextureHeight(playerArrowSize)
+                Minimap:SetPlayerTextureWidth(playerArrowSize)
+            end
+        end
+    end
+
+    --  REFRESCAR OTROS ELEMENTOS
+    self:UpdateTrackingIcon()
+
+end
+
+local function GetClockTextFrame()
+    if not TimeManagerClockButton then
+        return nil
+    end
+
+    -- Intentar múltiples métodos para encontrar el texto del reloj
+    local clockText = TimeManagerClockButton.text
+    if clockText then
+        return clockText
+    end
+
+    clockText = TimeManagerClockButton:GetFontString()
+    if clockText then
+        return clockText
+    end
+
+    -- Buscar en los children
+    for i = 1, TimeManagerClockButton:GetNumChildren() do
+        local child = select(i, TimeManagerClockButton:GetChildren())
+        if child and child.GetFont then
+            return child
+        end
+    end
+
+    -- Buscar en las regiones
+    for i = 1, TimeManagerClockButton:GetNumRegions() do
+        local region = select(i, TimeManagerClockButton:GetRegions())
+        if region and region.GetFont then
+            return region
+        end
+    end
+
+    return nil
+end
+
+--  NUEVA FUNCIÓN PARA APLICAR TODAS LAS CONFIGURACIONES
+function MinimapModule:ApplyAllSettings()
+    if not addon.db or not addon.db.profile or not addon.db.profile.minimap then
+        return
+    end
+
+    local settings = addon.db.profile.minimap
+
+    --  APLICAR BORDER ALPHA
+    if MinimapBorderTop and settings.border_alpha then
+        MinimapBorderTop:SetAlpha(settings.border_alpha)
+    end
+
+    --  APLICAR ZOOM BUTTONS VISIBILITY
+    if settings.zoom_buttons ~= nil then
+        if MinimapZoomIn and MinimapZoomOut then
+            if settings.zoom_buttons then
+                MinimapZoomIn:Show()
+                MinimapZoomOut:Show()
+            else
+                MinimapZoomIn:Hide()
+                MinimapZoomOut:Hide()
+            end
+        end
+    end
+
+    --  APLICAR CALENDAR VISIBILITY
+    if settings.calendar ~= nil then
+        if GameTimeFrame then
+            if settings.calendar then
+                GameTimeFrame:Show()
+            else
+                GameTimeFrame:Hide()
+            end
+        end
+    end
+
+    --  APLICAR CLOCK VISIBILITY Y AJUSTAR ZONA TEXT
+    if settings.clock ~= nil then
+        if TimeManagerClockButton then
+            if settings.clock then
+                TimeManagerClockButton:Show()
+                -- Clock visible: zona text alineado a la izquierda (posición original)
+                if MinimapZoneTextButton then
+                    MinimapZoneTextButton:ClearAllPoints()
+                    MinimapZoneTextButton:SetPoint("LEFT", MinimapBorderTop, "LEFT", 7, 1)
+                    MinimapZoneTextButton:SetWidth(108)
+                end
+                if MinimapZoneText then
+                    MinimapZoneText:SetJustifyH("LEFT")
+                end
+            else
+                TimeManagerClockButton:Hide()
+                -- Clock oculto: centrar zona text en todo el border
+                if MinimapZoneTextButton then
+                    MinimapZoneTextButton:ClearAllPoints()
+                    MinimapZoneTextButton:SetPoint("CENTER", MinimapBorderTop, "CENTER", 0, 1)
+                    MinimapZoneTextButton:SetWidth(150) -- Más ancho para texto centrado
+                end
+                if MinimapZoneText then
+                    MinimapZoneText:SetJustifyH("CENTER")
+                end
+            end
+        end
+    end
+
+    --  APLICAR CLOCK FONT SIZE (MEJORADO)
+    if settings.clock_font_size and TimeManagerClockButton then
+        local clockText = GetClockTextFrame()
+        if clockText then
+            local font, _, flags = clockText:GetFont()
+            clockText:SetFont(font, settings.clock_font_size, flags)
+
+        else
+
+        end
+    end
+
+    --  APLICAR ZONE TEXT FONT SIZE
+    if settings.zonetext_font_size and MinimapZoneText then
+        local font, _, flags = MinimapZoneText:GetFont()
+        MinimapZoneText:SetFont(font, settings.zonetext_font_size, flags)
+    end
+
+    --  APLICAR BLIP TEXTURE (NEW VS OLD STYLE)
+    -- ⚠️ 7.3.5禁用: 不要调用SetBlipTexture,让客户端使用默认的blip系统
+    addon:DebugError("Minimap", "ApplyAllSettings - 跳过SetBlipTexture调用(在7.3.5中不起作用)")
+    --[[ 7.3.5中禁用SetBlipTexture
+    if settings.blip_skin ~= nil and Minimap then
+        -- 根据用户设置选择纹理
+        local blipTexture
+        if settings.blip_skin then
+            blipTexture = 'Interface\\AddOns\\DragonUI\\assets\\objecticons'
+            addon:DebugWarning("Minimap", "ApplyAllSettings - 使用DragonUI自定义图标(仅3.3.5设计,在7.3.5中可能不正确)")
+        else
+            blipTexture = 'Interface\\Minimap\\ObjectIcons'
+            addon:DebugInfo("Minimap", "ApplyAllSettings - 使用暴雪默认图标样式")
+        end
+        
+        addon:DebugInfo("Minimap", "ApplyAllSettings - SetBlipTexture: %s", blipTexture)
+        
+        -- 尝试设置纹理并捕获错误
+        local success, err = pcall(function()
+            Minimap:SetBlipTexture(blipTexture)
+        end)
+        
+        if not success then
+            addon:DebugError("Minimap", "ApplyAllSettings - 设置失败: %s", tostring(err))
+            Minimap:SetBlipTexture('Interface\\Minimap\\ObjectIcons')
+        else
+            addon:DebugInfo("Minimap", "ApplyAllSettings - 纹理设置成功")
+        end
+    end
+    --]]
+
+    --  APLICAR PLAYER ARROW SIZE
+    if settings.player_arrow_size and Minimap then
+        -- 7.3.5 compatibility: SetPlayerTextureHeight/Width methods don't exist
+        if Minimap.SetPlayerTextureHeight then
+            Minimap:SetPlayerTextureHeight(settings.player_arrow_size)
+            Minimap:SetPlayerTextureWidth(settings.player_arrow_size)
+        end
+    end
+end
+--  Editor Mode Functions
+function MinimapModule:LoadDefaultSettings()
+    --  USAR LA BASE DE DATOS CORRECTA: addon.db (no addon.core.db)
+    if not addon.db.profile.widgets then
+        addon.db.profile.widgets = {}
+    end
+    addon.db.profile.widgets.minimap = {
+        anchor = "TOPRIGHT",
+        posX = 0,
+        posY = 0
+    }
+end
+
+function MinimapModule:UpdateWidgets()
+    --  USAR LA BASE DE DATOS CORRECTA: addon.db (no addon.core.db)
+    if not addon.db or not addon.db.profile.widgets or not addon.db.profile.widgets.minimap then
+
+        self:LoadDefaultSettings()
+        return
+    end
+
+    local widgetOptions = addon.db.profile.widgets.minimap
+    self.minimapFrame:SetPoint(widgetOptions.anchor, widgetOptions.posX, widgetOptions.posY)
+
+end
+
+--  FUNCIONES EDITOR MODE ELIMINADAS - AHORA USA SISTEMA CENTRALIZADO
+
+-- Función de refresh para ser llamada desde options.lua
+function addon:RefreshMinimap()
+    if MinimapModule.isEnabled then
+        MinimapModule:UpdateSettings()
+        -- Also update tracking icon when settings change
+        MinimapModule:UpdateTrackingIcon()
+        --  NUEVO: Refrescar skinning de iconos de addons
+        RemoveAllMinimapIconBorders()
+    end
+end
+
+-- Profile Callbacks para manejo de cambios de configuración
+MinimapModule.OnProfileChanged = function()
+    addon:RefreshMinimapSystem()
+end
+
+MinimapModule.OnProfileCopied = function()
+    addon:RefreshMinimapSystem()
+end
+
+MinimapModule.OnProfileReset = function()
+    addon:RefreshMinimapSystem()
+end
+
+-- Función de refresh del sistema para habilitar/deshabilitar
+function addon:RefreshMinimapSystem()
+    local isEnabled =
+        addon.db and addon.db.profile and addon.db.profile.modules and addon.db.profile.modules.minimap and
+            addon.db.profile.modules.minimap.enabled
+
+    if isEnabled == nil then
+        isEnabled = true -- Default to enabled
+    end
+
+    if isEnabled then
+        MinimapModule:ApplyMinimapSystem()
+    else
+        MinimapModule:RestoreMinimapSystem()
+    end
+end
+
+--  NUEVA FUNCIÓN: Limpiar skinning de todos los botones
+local function CleanAllMinimapButtons()
+    for i = 1, Minimap:GetNumChildren() do
+        local child = select(i, Minimap:GetChildren())
+        if child and child:GetObjectType() == "Button" and child.circle then
+            -- Limpiar el border del oldminimapcore.lua style
+            child.circle:Hide()
+            child.circle = nil
+        end
+    end
+end
+
+--  FUNCIÓN PARA DEBUGGING
+function addon:DebugMinimapButtons()
+
+    for i = 1, Minimap:GetNumChildren() do
+        local child = select(i, Minimap:GetChildren())
+        if child and child:GetObjectType() == "Button" then
+            local name = child:GetName() or "Unnamed"
+            local hasBorder = child.circle and "YES" or "NO"
+            local width, height = child:GetSize()
+
+        end
+    end
+end
+
+-- =================================================================
+-- INICIALIZACIÓN
+-- =================================================================
+
+-- Inicializar cuando el addon esté listo
+local initFrame = CreateFrame("Frame")
+initFrame:RegisterEvent("ADDON_LOADED")
+initFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+initFrame:SetScript("OnEvent", function(self, event, addonName)
+    if event == "ADDON_LOADED" and addonName == "DragonUI" then
+        -- Set original mask to standard Blizzard default
+        if not MinimapModule.originalMask then
+            MinimapModule.originalMask = "Textures\\MinimapMask"
+
+        end
+
+        -- Check if minimap module should be disabled and restore mask immediately
+        if addon.db and addon.db.profile and addon.db.profile.modules and addon.db.profile.modules.minimap then
+            local isEnabled = addon.db.profile.modules.minimap.enabled
+            if isEnabled == false then
+                Minimap:SetMaskTexture(MinimapModule.originalMask)
+
+            end
+        end
+    elseif event == "PLAYER_ENTERING_WORLD" then
+        MinimapModule:Initialize()
+        self:UnregisterAllEvents()
+    end
+end)
