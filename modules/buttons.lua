@@ -81,8 +81,24 @@ end
 -- Helper function to detect if text contains CJK (Chinese, Japanese, Korean) characters
 local function ContainsCJKCharacters(text)
     if not text or type(text) ~= "string" then return false end
-    -- Check for Chinese, Japanese, and Korean Unicode ranges
-    return text:find('[\228-\233][\128-\191]') ~= nil  -- UTF-8 encoded CJK characters
+    
+    -- 检查常见的中文字符范围（UTF-8编码）
+    -- 中文常用字符范围：U+4E00-U+9FFF (\xE4-\xE9 开头)
+    -- 扩展A区：U+3400-U+4DBF
+    -- 扩展B区及更高：U+20000+
+    -- 日文平假名/片假名：U+3040-U+30FF
+    -- 韩文：U+AC00-U+D7AF
+    
+    -- 更可靠的检测方法：查找任何非ASCII字符
+    for i = 1, #text do
+        local byte = text:byte(i)
+        -- UTF-8多字节字符的第一个字节 >= 128
+        if byte and byte >= 192 then
+            return true
+        end
+    end
+    
+    return false
 end
 
 -- helper function to handle action button grid logic
@@ -154,6 +170,13 @@ local function setup_background(button, anchor, shadow)
 	background:SetAllPoints(anchor);
 	background:set_atlas('ui-hud-actionbar-iconframe-slot');
 	background:Show();
+	
+	-- 验证背景纹理是否正确设置
+	if background:GetTexture() then
+	    addon:DebugInfo("Buttons", string.format("setup_background - 背景纹理已创建: %s", tostring(background:GetTexture())))
+	else
+	    addon:DebugInfo("Buttons", "警告：setup_background - 背景纹理未设置")
+	end
 	
 	return background;
 end
@@ -344,6 +367,13 @@ local function main_buttons(button)
 
 	button.background = setup_background(button, normal, true)
 	
+	-- 验证背景创建
+	if button.background then
+	    addon:DebugInfo("Buttons", string.format("main_buttons - %s 背景创建成功", name or "Unknown"))
+	else
+	    addon:DebugInfo("Buttons", string.format("警告：main_buttons - %s 背景创建失败", name or "Unknown"))
+	end
+	
 	button.__styled = true
 end
 
@@ -514,16 +544,31 @@ end
 -- ============================================================================
 
 local function ApplyButtonStyling()
-    if ButtonsModule.applied then return end
+    if ButtonsModule.applied then 
+        addon:DebugInfo("Buttons", "ApplyButtonStyling - 已经应用过样式，跳过")
+        return 
+    end
+    
+    addon:DebugInfo("Buttons", "========== 开始应用按钮样式 ==========")
     
     -- Setup main action buttons
+    local buttonCount = 0
     for button in addon.buttons_iterator() do
         if button then
             main_buttons(button)
             button:SetSize(37, 37)
+            buttonCount = buttonCount + 1
+            
+            -- 验证背景是否创建成功
+            if button.background then
+                addon:DebugInfo("Buttons", string.format("ActionButton%d 背景创建成功", buttonCount))
+            else
+                addon:DebugInfo("Buttons", string.format("警告：ActionButton%d 背景创建失败", buttonCount))
+            end
         end
     end
     
+    addon:DebugInfo("Buttons", string.format("总共样式化了 %d 个按钮", buttonCount))
     ButtonsModule.applied = true
 end
 
@@ -558,51 +603,96 @@ function addon.RefreshButtons()
     end
     
     local db = GetButtonsConfig()
-    if not db then return end
+    if not db then 
+        addon:DebugInfo("Buttons", "警告：RefreshButtons - 无法获取按钮配置")
+        return 
+    end
 
     for button in addon.buttons_iterator() do
-        if button and button.background then
+        if button then
+            -- 确保背景已创建（如果不存在则重新创建）
+            if not button.background then
+                local name = button:GetName()
+                if name then
+                    local normal = _G[name..'NormalTexture'] or button:GetNormalTexture()
+                    if normal then
+                        button.background = setup_background(button, normal, true)
+                    end
+                end
+            end
+            
+            -- 处理背景显示/隐藏
+            if button.background then
+                local buttonName = button:GetName()
+                if buttonName then
+                    local isMainActionButton = buttonName:match("^ActionButton%d+$")
+
+                    -- show/hide action backgrounds
+                    if db.only_actionbackground and not isMainActionButton then
+                        button.background:Hide()
+                    else
+                        button.background:Show()
+                    end
+                end
+            end
+            
+            -- 关键修复：宏名称、快捷键等文本处理不应该依赖背景是否存在
             local buttonName = button:GetName()
             if buttonName then
-                local isMainActionButton = buttonName:match("^ActionButton%d+$")
-
-                -- show/hide action backgrounds
-                if db.only_actionbackground and not isMainActionButton then
-                    button.background:Hide()
-                else
-                    button.background:Show()
-                end
-
                 -- update hotkeys and range indicators
                 pcall(actionbuttons_hotkey, button)
 
-                -- handle macro text
+                -- handle macro text - 独立于背景处理
                 local macros = _G[buttonName .. 'Name']
-                if macros and db.macros then
-                    if db.macros.show then
-                        macros:Show()
+                if macros then
+                    if db.macros then
+                        addon:DebugInfo("Buttons", string.format("处理按钮 %s 的宏名称", buttonName))
+                        
+                        if db.macros.show then
+                            macros:Show()
+                            addon:DebugInfo("Buttons", string.format("  - 显示宏名称文本框"))
+                        else
+                            macros:Hide()
+                            addon:DebugInfo("Buttons", string.format("  - 隐藏宏名称文本框（配置）"))
+                        end
+                        if db.macros.color then 
+                            macros:SetVertexColor(unpack(db.macros.color)) 
+                        end
+                        if db.macros.font then 
+                            -- Apply font with smart CJK detection for Chinese character support
+                            local macroText = macros:GetText() or ""
+                            local fontToUse = db.macros.font
+                            
+                            addon:DebugInfo("Buttons", string.format("  - 宏名称文本: '%s'", macroText))
+                            
+                            -- If text contains CJK characters, use Chinese-compatible font
+                            if ContainsCJKCharacters(macroText) then
+                                fontToUse = {'Fonts\\ARKai_T.ttf', 12, 'OUTLINE'}
+                                addon:DebugInfo("Buttons", string.format("  - 检测到中文，使用ARKai字体"))
+                            end
+                            
+                            local success, err = pcall(function()
+                                macros:SetFont(unpack(fontToUse))
+                            end)
+                            if not success then
+                                -- Fallback to default WoW Chinese font if custom font fails
+                                macros:SetFont('Fonts\\ARKai_T.ttf', 12, 'OUTLINE')
+                                addon:DebugInfo("Buttons", "  - 字体设置失败，使用备用中文字体")
+                            else
+                                addon:DebugInfo("Buttons", string.format("  - 字体设置成功"))
+                            end
+                        end
+                        
+                        -- 确保宏名称文本框的层级正确
+                        macros:SetDrawLayer("OVERLAY", 2)
+                        addon:DebugInfo("Buttons", string.format("  - 设置DrawLayer为OVERLAY, 2"))
                     else
+                        -- 如果没有macros配置，默认隐藏
                         macros:Hide()
+                        addon:DebugInfo("Buttons", string.format("  - 无macros配置，隐藏"))
                     end
-                    if db.macros.color then macros:SetVertexColor(unpack(db.macros.color)) end
-                    if db.macros.font then 
-                        -- Apply font with smart CJK detection for Chinese character support
-                        local macroText = macros:GetText() or ""
-                        local fontToUse = db.macros.font
-                        
-                        -- If text contains CJK characters, use Chinese-compatible font
-                        if ContainsCJKCharacters(macroText) then
-                            fontToUse = {'Fonts\\ARKai_T.ttf', 12, 'OUTLINE'}
-                        end
-                        
-                        local success, err = pcall(function()
-                            macros:SetFont(unpack(fontToUse))
-                        end)
-                        if not success then
-                            -- Fallback to default WoW Chinese font if custom font fails
-                            macros:SetFont('Fonts\\ARKai_T.ttf', 12, 'OUTLINE')
-                        end
-                    end
+                else
+                    addon:DebugInfo("Buttons", string.format("警告：按钮 %s 的宏名称文本框不存在", buttonName))
                 end
 
                 -- handle count text
@@ -783,8 +873,20 @@ end
 -- Register initialization events
 addon.package:RegisterEvents(function()
     if IsModuleEnabled() then
-        addon.actionbuttons_grid(); 
-        addon.RefreshButtons();
+        addon:DebugInfo("Buttons", "========== PLAYER_LOGIN 事件触发 ==========")
+        
+        -- 关键修复：延迟一小段时间确保数据库完全加载
+        C_Timer.After(0.1, function()
+            addon:DebugInfo("Buttons", "执行 actionbuttons_grid 和 RefreshButtons")
+            addon.actionbuttons_grid(); 
+            addon.RefreshButtons();
+            
+            -- 确保主动作条背景也更新
+            if MainMenuBarMixin and MainMenuBarMixin.update_main_bar_background then
+                addon:DebugInfo("Buttons", "调用 update_main_bar_background")
+                MainMenuBarMixin:update_main_bar_background()
+            end
+        end)
     end
     collectgarbage();
 end,

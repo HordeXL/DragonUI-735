@@ -284,27 +284,41 @@ local function InitializeMainbars()
         pUiMainBar:SetFrameRef('ActionButton' .. index, _G['ActionButton' .. index])
     end
 
-    -- Aplicar SetThreeSlice solo si el fondo NO está oculto
-    local shouldHideBackground = addon.db and addon.db.profile and addon.db.profile.buttons and 
-                                addon.db.profile.buttons.hide_main_bar_background
+    -- 关键修复：确保按钮背景纹理正确创建和显示
+    local db = addon.db and addon.db.profile and addon.db.profile.buttons
+    local shouldHideBackground = db and db.hide_main_bar_background
     
+    addon:DebugInfo("Mainbars", string.format("actionbutton_setup - hide_main_bar_background: %s", tostring(shouldHideBackground)))
+    
+    -- 为所有主动作条按钮应用SetThreeSlice（除非明确隐藏背景）
     if not shouldHideBackground then
         for index = 1, NUM_ACTIONBAR_BUTTONS - 1 do
             local ActionButtons = _G['ActionButton' .. index]
-            do_action.SetThreeSlice(ActionButtons);
+            if ActionButtons then
+                do_action.SetThreeSlice(ActionButtons);
+                addon:DebugInfo("Mainbars", string.format("已为ActionButton%d应用SetThreeSlice", index))
+            end
         end
+    else
+        addon:DebugInfo("Mainbars", "背景被配置为隐藏，跳过SetThreeSlice")
     end
 
     for index = 2, NUM_ACTIONBAR_BUTTONS do
         local ActionButtons = _G['ActionButton' .. index]
-        ActionButtons:SetParent(pUiMainBar)
-        ActionButtons:SetClearPoint('LEFT', _G['ActionButton' .. (index - 1)], 'RIGHT', 7, 0)
+        if ActionButtons then
+            ActionButtons:SetParent(pUiMainBar)
+            ActionButtons:SetClearPoint('LEFT', _G['ActionButton' .. (index - 1)], 'RIGHT', 7, 0)
+        end
 
         local BottomLeftButtons = _G['MultiBarBottomLeftButton' .. index]
-        BottomLeftButtons:SetClearPoint('LEFT', _G['MultiBarBottomLeftButton' .. (index - 1)], 'RIGHT', 7, 0)
+        if BottomLeftButtons then
+            BottomLeftButtons:SetClearPoint('LEFT', _G['MultiBarBottomLeftButton' .. (index - 1)], 'RIGHT', 7, 0)
+        end
 
         local BottomRightButtons = _G['MultiBarBottomRightButton' .. index]
-        BottomRightButtons:SetClearPoint('LEFT', _G['MultiBarBottomRightButton' .. (index - 1)], 'RIGHT', 7, 0)
+        if BottomRightButtons then
+            BottomRightButtons:SetClearPoint('LEFT', _G['MultiBarBottomRightButton' .. (index - 1)], 'RIGHT', 7, 0)
+        end
 
         -- 7.3.5 compatibility: BonusActionButton was removed
         local BonusActionButtons = _G['BonusActionButton' .. index]
@@ -332,8 +346,11 @@ end
     end
 
     function MainMenuBarMixin:update_main_bar_background()
-    local alpha = (addon.db and addon.db.profile and addon.db.profile.buttons and
-                      addon.db.profile.buttons.hide_main_bar_background) and 0 or 1
+    local db = addon.db and addon.db.profile and addon.db.profile.buttons
+    local shouldHideBackground = db and db.hide_main_bar_background
+    local alpha = shouldHideBackground and 0 or 1
+
+    addon:DebugInfo("Mainbars", string.format("update_main_bar_background - hide_main_bar_background: %s, alpha: %.1f", tostring(shouldHideBackground), alpha))
 
     -- handle button background textures
     for i = 1, NUM_ACTIONBAR_BUTTONS do
@@ -341,6 +358,16 @@ end
         if button then
             if button.NormalTexture then
                 button.NormalTexture:SetAlpha(alpha)
+            end
+            
+            -- 处理按钮的背景纹理（由setup_background创建）
+            if button.background then
+                button.background:SetAlpha(alpha)
+                if alpha > 0 then
+                    button.background:Show()
+                else
+                    button.background:Hide()
+                end
             end
             
             -- Ocultar también las texturas aplicadas por SetThreeSlice
@@ -357,6 +384,8 @@ end
                         end
                     end
                 end
+                -- 关键修复：明确跳过 FontString 对象，不要修改它们的 Alpha
+                -- FontString 是文本对象（宏名称、快捷键、数量等），不应该被背景透明度影响
             end
         end
     end
@@ -1364,9 +1393,12 @@ function addon.RefreshMainbarsSystem()
         return
     end
 
+    addon:DebugInfo("Mainbars", "========== RefreshMainbarsSystem 被调用 ==========")
+
     -- CRÍTICO: No tocar frames protegidos durante combate
     if InCombatLockdown() then
         -- Solo actualizar cosas seguras (no frames)
+        addon:DebugInfo("Mainbars", "战斗中，仅更新安全元素")
         addon.UpdateGryphonStyle()
         if addon.MainMenuBarMixin and addon.MainMenuBarMixin.update_main_bar_background then
             addon.MainMenuBarMixin:update_main_bar_background()
@@ -1377,6 +1409,7 @@ function addon.RefreshMainbarsSystem()
     -- Apply scales to all action bars (SOLO FUERA DE COMBATE)
     local db = addon.db and addon.db.profile and addon.db.profile.mainbars
     if not db then
+        addon:DebugInfo("Mainbars", "警告：无法获取mainbars配置")
         return
     end
 
@@ -1405,6 +1438,7 @@ function addon.RefreshMainbarsSystem()
     -- Update gryphon style and background
     addon.UpdateGryphonStyle()
     if addon.MainMenuBarMixin and addon.MainMenuBarMixin.update_main_bar_background then
+        addon:DebugInfo("Mainbars", "调用 update_main_bar_background")
         addon.MainMenuBarMixin:update_main_bar_background()
     end
 
@@ -1420,6 +1454,8 @@ function addon.RefreshMainbarsSystem()
             addon.PositionActionBarsToContainers()
         end
     end
+    
+    addon:DebugInfo("Mainbars", "========== RefreshMainbarsSystem 完成 ==========")
 end
 
 -- Alias for compatibility
