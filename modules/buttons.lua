@@ -171,13 +171,6 @@ local function setup_background(button, anchor, shadow)
 	background:set_atlas('ui-hud-actionbar-iconframe-slot');
 	background:Show();
 	
-	-- 验证背景纹理是否正确设置
-	if background:GetTexture() then
-	    addon:DebugInfo("Buttons", string.format("setup_background - 背景纹理已创建: %s", tostring(background:GetTexture())))
-	else
-	    addon:DebugInfo("Buttons", "警告：setup_background - 背景纹理未设置")
-	end
-	
 	return background;
 end
 
@@ -367,13 +360,6 @@ local function main_buttons(button)
 
 	button.background = setup_background(button, normal, true)
 	
-	-- 验证背景创建
-	if button.background then
-	    addon:DebugInfo("Buttons", string.format("main_buttons - %s 背景创建成功", name or "Unknown"))
-	else
-	    addon:DebugInfo("Buttons", string.format("警告：main_buttons - %s 背景创建失败", name or "Unknown"))
-	end
-	
 	button.__styled = true
 end
 
@@ -545,30 +531,17 @@ end
 
 local function ApplyButtonStyling()
     if ButtonsModule.applied then 
-        addon:DebugInfo("Buttons", "ApplyButtonStyling - 已经应用过样式，跳过")
-        return 
+        return
     end
     
-    addon:DebugInfo("Buttons", "========== 开始应用按钮样式 ==========")
-    
     -- Setup main action buttons
-    local buttonCount = 0
     for button in addon.buttons_iterator() do
         if button then
             main_buttons(button)
             button:SetSize(37, 37)
-            buttonCount = buttonCount + 1
-            
-            -- 验证背景是否创建成功
-            if button.background then
-                addon:DebugInfo("Buttons", string.format("ActionButton%d 背景创建成功", buttonCount))
-            else
-                addon:DebugInfo("Buttons", string.format("警告：ActionButton%d 背景创建失败", buttonCount))
-            end
         end
     end
     
-    addon:DebugInfo("Buttons", string.format("总共样式化了 %d 个按钮", buttonCount))
     ButtonsModule.applied = true
 end
 
