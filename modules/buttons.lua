@@ -78,6 +78,13 @@ end
 -- UTILITY FUNCTIONS
 -- ============================================================================
 
+-- Helper function to detect if text contains CJK (Chinese, Japanese, Korean) characters
+local function ContainsCJKCharacters(text)
+    if not text or type(text) ~= "string" then return false end
+    -- Check for Chinese, Japanese, and Korean Unicode ranges
+    return text:find('[\228-\233][\128-\191]') ~= nil  -- UTF-8 encoded CJK characters
+end
+
 -- helper function to handle action button grid logic
 local function handleActionButton(button, wowAlwaysShow)
     if not IsModuleEnabled() then return end
@@ -229,7 +236,20 @@ local function actionbuttons_hotkey(button)
 		hotkey:SetText(formattedText)
 		
 		if db.hotkey.font then
-			hotkey:SetFont(unpack(db.hotkey.font))
+			-- Apply font with smart CJK detection for Chinese character support
+			local fontToUse = db.hotkey.font
+			
+			-- If text contains CJK characters, use Chinese-compatible font
+			if ContainsCJKCharacters(formattedText) then
+				fontToUse = {'Fonts\\ARKai_T.ttf', 12, 'OUTLINE'}
+			end
+			
+			local success = pcall(function()
+				hotkey:SetFont(unpack(fontToUse))
+			end)
+			if not success then
+				hotkey:SetFont('Fonts\\ARKai_T.ttf', 12, 'OUTLINE')
+			end
 		end
 		
 		hotkey:SetShadowOffset(-1.3, -1.1)
@@ -565,7 +585,24 @@ function addon.RefreshButtons()
                         macros:Hide()
                     end
                     if db.macros.color then macros:SetVertexColor(unpack(db.macros.color)) end
-                    if db.macros.font then macros:SetFont(unpack(db.macros.font)) end
+                    if db.macros.font then 
+                        -- Apply font with smart CJK detection for Chinese character support
+                        local macroText = macros:GetText() or ""
+                        local fontToUse = db.macros.font
+                        
+                        -- If text contains CJK characters, use Chinese-compatible font
+                        if ContainsCJKCharacters(macroText) then
+                            fontToUse = {'Fonts\\ARKai_T.ttf', 12, 'OUTLINE'}
+                        end
+                        
+                        local success, err = pcall(function()
+                            macros:SetFont(unpack(fontToUse))
+                        end)
+                        if not success then
+                            -- Fallback to default WoW Chinese font if custom font fails
+                            macros:SetFont('Fonts\\ARKai_T.ttf', 12, 'OUTLINE')
+                        end
+                    end
                 end
 
                 -- handle count text

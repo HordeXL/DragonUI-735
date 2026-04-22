@@ -8,7 +8,7 @@ local addon = select(2, ...);
 
 -- Debug Configuration
 local DEBUG_CONFIG = {
-    enabled = true,  -- 主开关
+    enabled = false,  -- 主开关
     verboseMode = true,  -- 详细模式
     logToFile = true,  -- 记录到SavedVariables (永久保存)
     showInChat = false,  -- 在聊天框显示 (已禁用,仅记录到日志文件)

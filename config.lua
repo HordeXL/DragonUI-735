@@ -12,7 +12,8 @@ local static_assets = {
 local static_fonts = {
 	count_font = {addon._dir..'expressway.ttf', 14, 'OUTLINE'},
 	hotkey_font = {addon._dir..'expressway.ttf', 14, ''},
-	macros_font = {addon._dir..'expressway.ttf', 14, ''},
+	-- Use WoW's built-in Chinese font for macro names to support CJK characters
+	macros_font = {'Fonts\\ARKai_T.ttf', 12, 'OUTLINE'},
 	pages_font = {addon._dir..'expressway.ttf', 14, ''},
 	cooldown_font = {addon._dir..'expressway.ttf', 14, 'OUTLINE'},
 };
