@@ -128,6 +128,15 @@ local function InitializeMainbars()
 
     local pUiMainBarArt = CreateFrame('Frame', 'pUiMainBarArt', pUiMainBar);
 
+    -- ⭐ 辅助函数：检查表是否包含某个值
+    local function tableContains(tbl, value)
+        if not tbl then return false end
+        for _, v in pairs(tbl) do
+            if v == value then return true end
+        end
+        return false
+    end
+
     -- ACTION BAR SYSTEM
     addon.ActionBarFrames = {
         mainbar = nil,
@@ -686,11 +695,14 @@ end
    -- Función específica para deshabilitar MainMenuBarMaxLevelBar
     local function DisableMaxLevelBar()
         if MainMenuBarMaxLevelBar then
+            -- ⭐ 不要完全禁用，而是让它在非职业大厅区域保持隐藏
+            -- 只设置初始状态为隐藏，但允许后续通过事件控制
             MainMenuBarMaxLevelBar:Hide()
-            MainMenuBarMaxLevelBar:EnableMouse(false)
             MainMenuBarMaxLevelBar:SetAlpha(0)
-            -- Asegurar que nunca interfiera
+            -- 降低FrameLevel以避免干扰其他UI元素
             MainMenuBarMaxLevelBar:SetFrameLevel(0)
+            -- ⭐ 不禁用鼠标，允许暴雪的状态驱动正常工作
+            -- MainMenuBarMaxLevelBar:EnableMouse(false)  -- 移除这行
         end
     end
 
@@ -711,9 +723,11 @@ end
             if frame then
                 frame:SetAlpha(0)
                 if frame == MainMenuBarMaxLevelBar then
-                    frame:EnableMouse(false)
+                    -- ⭐ 对于MainMenuBarMaxLevelBar，只隐藏但不禁用鼠标
+                    -- 允许暴雪的状态驱动系统控制其可见性
                     frame:Hide()
                     frame:SetFrameLevel(0)
+                    -- 不禁用鼠标：frame:EnableMouse(false)  -- 已移除
                 end
             end
         end
@@ -940,10 +954,12 @@ end
 
         -- CRÍTICO: Deshabilitar MainMenuBarMaxLevelBar INMEDIATAMENTE
         if MainMenuBarMaxLevelBar then
+            -- ⭐ 初始隐藏，但允许后续通过事件控制
             MainMenuBarMaxLevelBar:Hide()
-            MainMenuBarMaxLevelBar:EnableMouse(false)
             MainMenuBarMaxLevelBar:SetAlpha(0)
             MainMenuBarMaxLevelBar:SetFrameLevel(0)
+            -- 不禁用鼠标，让暴雪的状态驱动可以正常工作
+            -- MainMenuBarMaxLevelBar:EnableMouse(false)  -- 已移除
         end
 
         MainMenuBarMixin:initialize()
@@ -1183,6 +1199,9 @@ end
     local eventFrame = CreateFrame("Frame")
     eventFrame:RegisterEvent("UPDATE_EXHAUSTION")
     eventFrame:RegisterEvent("PLAYER_XP_UPDATE")  -- ⚠️ 关键：监听经验值变化
+    eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")  -- ⭐ 修复：监听区域变化以控制职业大厅资源条
+    eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")  -- ⭐ 修复：监听玩家进入世界以控制职业大厅资源条
+    eventFrame:RegisterEvent("ORDER_HALL_LANDING_PAGE_CLOSED")  -- ⭐ 修复：监听职业大厅界面关闭
     eventFrame:SetScript("OnEvent", function(self, event)
         if event == "UPDATE_EXHAUSTION" then
             addon:DebugInfo("ExpRepBar", "========== 事件：UPDATE_EXHAUSTION ===========")
@@ -1193,6 +1212,81 @@ end
             addon:DebugInfo("ExpRepBar", "========== 事件：PLAYER_XP_UPDATE ===========")
             -- ⚠️ 关键：经验值变化时，暴雪可能重置StatusBarTexture，需要重新应用纹理
             ApplyModernExpBarVisual()
+        elseif event == "ORDER_HALL_LANDING_PAGE_CLOSED" then
+            -- ⭐ 修复：当职业大厅界面关闭时，立即隐藏资源条
+            if MainMenuBarMaxLevelBar then
+                MainMenuBarMaxLevelBar:Hide()
+                MainMenuBarMaxLevelBar:SetAlpha(0)
+                MainMenuBarMaxLevelBar:EnableMouse(false)
+                addon:DebugInfo("Mainbars", "职业大厅界面已关闭，隐藏资源条")
+            end
+        elseif event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" then
+            -- ⭐ 修复：检查是否在职业大厅区域，控制MainMenuBarMaxLevelBar的可见性
+            C_Timer.After(0.5, function()
+                if MainMenuBarMaxLevelBar then
+                    local inOrderHall = false
+                    
+                    -- ⭐ 方法1：检查OrderHallLandingPage是否可见（最可靠的方法）
+                    if OrderHallLandingPage and OrderHallLandingPage:IsShown() then
+                        inOrderHall = true
+                    end
+                    
+                    -- ⭐ 方法2：检查是否在破碎群岛区域（通过子区域名称判断）
+                    if not inOrderHall then
+                        local _, _, _, zoneName = GetInstanceInfo()
+                        if zoneName then
+                            -- 职业大厅相关的区域名称
+                            local orderHallZones = {
+                                "达拉然", -- Dalaran
+                                "猎手大厅", -- Hunter Hall
+                                "冥狱深渊", -- Maw of Souls
+                                "黑锋要塞", -- Acherus
+                                "翡翠梦魇", -- Emerald Dreamway
+                                "职业大厅", -- Order Hall
+                            }
+                            for _, hallZone in ipairs(orderHallZones) do
+                                if string.find(zoneName, hallZone) then
+                                    inOrderHall = true
+                                    break
+                                end
+                            end
+                        end
+                    end
+                    
+                    -- ⭐ 方法3：尝试使用C_Map API（如果可用）
+                    if not inOrderHall and C_Map and C_Map.GetBestMapForUnit then
+                        local mapID = C_Map.GetBestMapForUnit("player")
+                        if mapID then
+                            -- 职业大厅地图ID列表（破碎群岛各职业大厅）
+                            local orderHallMaps = {
+                                624, -- 达拉然（破碎群岛）
+                                627, -- 猎手大厅
+                                628, -- 冥狱深渊
+                                629, -- 翡翠梦魇入口
+                                630, -- 黑锋要塞
+                                631, -- 职业大厅通用
+                            }
+                            
+                            if tableContains(orderHallMaps, mapID) then
+                                inOrderHall = true
+                            end
+                        end
+                    end
+                    
+                    -- 如果在职业大厅，允许显示；否则强制隐藏
+                    if not inOrderHall then
+                        MainMenuBarMaxLevelBar:Hide()
+                        MainMenuBarMaxLevelBar:SetAlpha(0)
+                        MainMenuBarMaxLevelBar:EnableMouse(false)
+                        addon:DebugInfo("Mainbars", string.format("离开职业大厅区域，隐藏职业大厅资源条"))
+                    else
+                        -- 在职业大厅时，恢复正常的可见性控制
+                        MainMenuBarMaxLevelBar:EnableMouse(true)
+                        MainMenuBarMaxLevelBar:SetAlpha(1)
+                        addon:DebugInfo("Mainbars", string.format("在职业大厅区域，允许显示职业大厅资源条"))
+                    end
+                end
+            end)
         end
     end)
 
