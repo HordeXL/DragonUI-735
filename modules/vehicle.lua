@@ -300,7 +300,7 @@ local function vehiclebutton_position()
             button:ClearAllPoints()
             button:SetSize(config.additional.size * 1.6, config.additional.size * 1.6)
             if index == 1 then
-                button:SetPoint('BOTTOMLEFT', bar, 'BOTTOMLEFT', 160, 18)
+                button:SetPoint('BOTTOMLEFT', bar, 'BOTTOMLEFT', 260, 18)
             else
                 local previous = _G['OverrideActionBarButton'..(index-1)]
                 if previous then
