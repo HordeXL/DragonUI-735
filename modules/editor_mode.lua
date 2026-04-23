@@ -9,9 +9,9 @@ local resetAllButton = nil;
 
 -- StaticPopup para reiniciar UI después de salir del modo editor
 StaticPopupDialogs["DRAGONUI_RELOAD_UI"] = {
-    text = "UI elements have been repositioned. Reload UI to ensure all graphics display correctly?",
-    button1 = "Reload Now",
-    button2 = "Later",
+    text = "UI元素已重新定位。是否立即重载UI以确保所有图形正确显示？",
+    button1 = "立即重载",
+    button2 = "稍后",
     OnAccept = function()
         ReloadUI()
     end,
@@ -27,7 +27,7 @@ local function createExitButton()
 
     -- Crear el botón con estilo profesional
     exitEditorButton = CreateFrame("Button", "DragonUIExitEditorButton", UIParent, "UIPanelButtonTemplate");
-    exitEditorButton:SetText("Exit Edit Mode");
+    exitEditorButton:SetText("退出编辑模式");
     exitEditorButton:SetSize(140, 28); -- Mismo tamaño que Reset button
     exitEditorButton:SetPoint("CENTER", UIParent, "CENTER", 0, 200); -- Posición flotante centrada
     exitEditorButton:SetFrameStrata("DIALOG"); -- Asegura que esté por encima de otros elementos
@@ -54,7 +54,7 @@ local function createExitButton()
     local fontString = exitEditorButton:GetFontString()
     if fontString then
         fontString:SetTextColor(1, 1, 1, 1) -- Texto blanco
-        fontString:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE") -- Fuente profesional
+        fontString:SetFont("Fonts\\ARKai_T.ttf", 12, "OUTLINE") -- Fuente profesional
     end
 
     -- Asignar la acción de salida
@@ -71,7 +71,7 @@ local function createResetAllButton()
 
     -- Crear el botón con estilo profesional sincronizado
     resetAllButton = CreateFrame("Button", "DragonUIResetAllButton", UIParent, "UIPanelButtonTemplate");
-    resetAllButton:SetText("Reset All Positions");
+    resetAllButton:SetText("重置所有位置");
     resetAllButton:SetSize(140, 28); -- Mismo tamaño que Exit button
     resetAllButton:SetPoint("CENTER", UIParent, "CENTER", 0, 165); -- Separación uniforme
     resetAllButton:SetFrameStrata("DIALOG");
@@ -97,7 +97,7 @@ local function createResetAllButton()
     local fontString = resetAllButton:GetFontString()
     if fontString then
         fontString:SetTextColor(1, 1, 1, 1) -- Texto blanco
-        fontString:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE") -- Fuente profesional
+        fontString:SetFont("Fonts\\ARKai_T.ttf", 12, "OUTLINE") -- Fuente profesional
     end
 
     -- ESTRATEGIA: Mostrar confirmación directamente sin salir del editor mode
@@ -384,9 +384,9 @@ end
 
 --  DEFINIR EL POPUP DE CONFIRMACIÓN
 StaticPopupDialogs["DRAGONUI_RESET_ALL_POSITIONS"] = {
-    text = "Are you sure you want to reset all interface elements to their default positions?",
-    button1 = "Yes",
-    button2 = "No",
+    text = "确定要将所有界面元素重置为默认位置吗？",
+    button1 = "是",
+    button2 = "否",
     OnAccept = function()
         EditorMode:ResetAllPositions()
     end,
