@@ -192,8 +192,8 @@ function QuestTrackerModule:Initialize()
         end
     end)
     
-    self.questTrackerFrame:SetFrameLevel(100)
-    self.questTrackerFrame:SetFrameStrata('FULLSCREEN')
+    self.questTrackerFrame:SetFrameLevel(1)
+    self.questTrackerFrame:SetFrameStrata('BACKGROUND')
     
     addon:DebugInfo("QuestTracker", "创建 DragonUI_QuestTrackerFrame:")
     addon:DebugInfo("QuestTracker", "  - 父框架: %s", self.questTrackerFrame:GetParent():GetName() or "<unnamed>")
