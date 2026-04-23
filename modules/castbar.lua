@@ -585,16 +585,24 @@ local function SetCastText(unitType, text)
         return
     end
     
+    -- 应用智能字体：根据实际文本内容动态切换字体
+    local defaultFontPlayer = {"Fonts\\FRIZQT__.TTF", 12, "OUTLINE"}
+    local defaultFontOther = {"Fonts\\FRIZQT__.TTF", 10, "OUTLINE"}
+    local defaultFont = unitType == "player" and defaultFontPlayer or defaultFontOther
+    
     if textMode == "simple" then
         if frames.castTextCentered then
             frames.castTextCentered:SetText(text)
+            addon.FontSystem.UpdateFontForText(frames.castTextCentered, text, defaultFont)
         end
     else
         if frames.castText then
             frames.castText:SetText(text)
+            addon.FontSystem.UpdateFontForText(frames.castText, text, defaultFont)
         end
         if frames.castTextCompact then
             frames.castTextCompact:SetText(text)
+            addon.FontSystem.UpdateFontForText(frames.castTextCompact, text, defaultFont)
         end
     end
 end
@@ -822,6 +830,33 @@ local function CreateCastbar(unitType)
     
     -- Apply texture clipping system
     CreateTextureClipping(frames.castbar)
+    
+    -- 应用智能字体支持中文（在所有文本元素创建后）
+    local defaultFontPlayer = {"Fonts\\FRIZQT__.TTF", 12, "OUTLINE"}
+    local defaultFontOther = {"Fonts\\FRIZQT__.TTF", 10, "OUTLINE"}
+    local defaultFont = unitType == "player" and defaultFontPlayer or defaultFontOther
+    
+    if frames.castText then
+        addon.FontSystem.ApplySmartFont(frames.castText, "Spell Name", defaultFont)
+    end
+    if frames.castTextCentered then
+        addon.FontSystem.ApplySmartFont(frames.castTextCentered, "Spell Name", defaultFont)
+    end
+    if frames.castTextCompact then
+        addon.FontSystem.ApplySmartFont(frames.castTextCompact, "Spell", defaultFont)
+    end
+    if frames.castTimeText then
+        addon.FontSystem.ApplySmartFont(frames.castTimeText, "Time", defaultFont)
+    end
+    if frames.castTimeTextCompact then
+        addon.FontSystem.ApplySmartFont(frames.castTimeTextCompact, "Time", defaultFont)
+    end
+    if frames.timeValue then
+        addon.FontSystem.ApplySmartFont(frames.timeValue, "Time", defaultFont)
+    end
+    if frames.timeMax then
+        addon.FontSystem.ApplySmartFont(frames.timeMax, " / Time", defaultFont)
+    end
     
     -- OnUpdate handler 
     frames.castbar:SetScript('OnUpdate', function(self, elapsed)

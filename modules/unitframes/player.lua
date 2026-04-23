@@ -1247,7 +1247,11 @@ local function CreatePlayerFrameTextures()
         text:SetPoint("CENTER", groupIndicator, "CENTER", 0, 0)
         text:SetJustifyH("CENTER")
         text:SetTextColor(1, 1, 1, 1)
-        text:SetFont("Fonts\\FRIZQT__.TTF", 9)
+        
+        -- 应用智能字体支持中文
+        local defaultFont = {"Fonts\\FRIZQT__.TTF", 9}
+        addon.FontSystem.ApplySmartFont(text, "GROUP", defaultFont)
+        
         text:SetShadowOffset(1, -1)
         text:SetShadowColor(0, 0, 0, 1)
 

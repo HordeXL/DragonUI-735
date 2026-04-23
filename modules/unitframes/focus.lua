@@ -444,7 +444,9 @@ local function InitializeFrame()
 
         numeric.text = numeric:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
         numeric.text:SetPoint("CENTER",0, 1)
-        numeric.text:SetFont("Fonts\\FRIZQT__.TTF", 10)
+        -- 应用智能字体支持中文
+        local defaultFont = {"Fonts\\FRIZQT__.TTF", 10}
+        addon.FontSystem.ApplySmartFont(numeric.text, "Threat", defaultFont)
         numeric.text:SetShadowOffset(1, -1)
 
         frameElements.threatNumeric = numeric
