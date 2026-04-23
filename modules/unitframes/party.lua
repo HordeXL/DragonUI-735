@@ -877,8 +877,7 @@ CreateCustomTexts = function(frame)
         -- Texto central para formatos simples (numeric, percentage, formatted)
         if not frame.DragonUI_HealthText then
             frame.DragonUI_HealthText = frame.DragonUI_TextFrame:CreateFontString(nil, "OVERLAY")
-            local defaultFont = {"Fonts\\FRIZQT__.TTF", 10, "OUTLINE"}
-            addon.FontSystem.ApplySmartFont(frame.DragonUI_HealthText, "HP", defaultFont)
+            frame.DragonUI_HealthText:SetFont("Fonts\\ARKai_T.ttf", 10, "OUTLINE")
             frame.DragonUI_HealthText:SetTextColor(1, 1, 1, 1)
             frame.DragonUI_HealthText:SetPoint("CENTER", healthBar, "CENTER", 0, 0)
             frame.DragonUI_HealthText:SetJustifyH("CENTER")
@@ -887,8 +886,7 @@ CreateCustomTexts = function(frame)
         -- Texto izquierdo para formato "both" (porcentaje)
         if not frame.DragonUI_HealthTextLeft then
             frame.DragonUI_HealthTextLeft = frame.DragonUI_TextFrame:CreateFontString(nil, "OVERLAY")
-            local defaultFont = {"Fonts\\FRIZQT__.TTF", 10, "OUTLINE"}
-            addon.FontSystem.ApplySmartFont(frame.DragonUI_HealthTextLeft, "%", defaultFont)
+            frame.DragonUI_HealthTextLeft:SetFont("Fonts\\ARKai_T.ttf", 10, "OUTLINE")
             frame.DragonUI_HealthTextLeft:SetTextColor(1, 1, 1, 1)
             frame.DragonUI_HealthTextLeft:SetPoint("RIGHT", healthBar, "RIGHT", -39, 0)
             frame.DragonUI_HealthTextLeft:SetJustifyH("LEFT")
@@ -897,8 +895,7 @@ CreateCustomTexts = function(frame)
         -- Texto derecho para formato "both" (números)
         if not frame.DragonUI_HealthTextRight then
             frame.DragonUI_HealthTextRight = frame.DragonUI_TextFrame:CreateFontString(nil, "OVERLAY")
-            local defaultFont = {"Fonts\\FRIZQT__.TTF", 10, "OUTLINE"}
-            addon.FontSystem.ApplySmartFont(frame.DragonUI_HealthTextRight, "HP", defaultFont)
+            frame.DragonUI_HealthTextRight:SetFont("Fonts\\ARKai_T.ttf", 10, "OUTLINE")
             frame.DragonUI_HealthTextRight:SetTextColor(1, 1, 1, 1)
             frame.DragonUI_HealthTextRight:SetPoint("RIGHT", healthBar, "RIGHT", -3, 0)
             frame.DragonUI_HealthTextRight:SetJustifyH("RIGHT")
@@ -912,8 +909,7 @@ CreateCustomTexts = function(frame)
         -- Texto central para formatos simples
         if not frame.DragonUI_ManaText then
             frame.DragonUI_ManaText = frame.DragonUI_TextFrame:CreateFontString(nil, "OVERLAY")
-            local defaultFont = {"Fonts\\FRIZQT__.TTF", 10, "OUTLINE"}
-            addon.FontSystem.ApplySmartFont(frame.DragonUI_ManaText, "MP", defaultFont)
+            frame.DragonUI_ManaText:SetFont("Fonts\\ARKai_T.ttf", 10, "OUTLINE")
             frame.DragonUI_ManaText:SetTextColor(1, 1, 1, 1)
             frame.DragonUI_ManaText:SetPoint("CENTER", manaBar, "CENTER", 1.5, 0)
             frame.DragonUI_ManaText:SetJustifyH("CENTER")
@@ -922,8 +918,7 @@ CreateCustomTexts = function(frame)
         -- Texto izquierdo para formato "both" (porcentaje)
         if not frame.DragonUI_ManaTextLeft then
             frame.DragonUI_ManaTextLeft = frame.DragonUI_TextFrame:CreateFontString(nil, "OVERLAY")
-            local defaultFont = {"Fonts\\FRIZQT__.TTF", 10, "OUTLINE"}
-            addon.FontSystem.ApplySmartFont(frame.DragonUI_ManaTextLeft, "%", defaultFont)
+            frame.DragonUI_ManaTextLeft:SetFont("Fonts\\ARKai_T.ttf", 10, "OUTLINE")
             frame.DragonUI_ManaTextLeft:SetTextColor(1, 1, 1, 1)
             frame.DragonUI_ManaTextLeft:SetPoint("RIGHT", manaBar, "RIGHT", -39, 0)
             frame.DragonUI_ManaTextLeft:SetJustifyH("LEFT")
@@ -932,8 +927,7 @@ CreateCustomTexts = function(frame)
         -- Texto derecho para formato "both" (números)
         if not frame.DragonUI_ManaTextRight then
             frame.DragonUI_ManaTextRight = frame.DragonUI_TextFrame:CreateFontString(nil, "OVERLAY")
-            local defaultFont = {"Fonts\\FRIZQT__.TTF", 10, "OUTLINE"}
-            addon.FontSystem.ApplySmartFont(frame.DragonUI_ManaTextRight, "MP", defaultFont)
+            frame.DragonUI_ManaTextRight:SetFont("Fonts\\ARKai_T.ttf", 10, "OUTLINE")
             frame.DragonUI_ManaTextRight:SetTextColor(1, 1, 1, 1)
             frame.DragonUI_ManaTextRight:SetPoint("RIGHT", manaBar, "RIGHT", -3, 0)
             frame.DragonUI_ManaTextRight:SetJustifyH("RIGHT")
@@ -1065,9 +1059,7 @@ local function StylePartyFrames()
             -- Name styling
            local name = _G[frame:GetName() .. 'Name']
             if name then
-                -- 应用智能字体支持中文玩家名称
-                local defaultFont = {"Fonts\\FRIZQT__.TTF", 10}
-                addon.FontSystem.ApplySmartFont(name, UnitName("party" .. i) or "", defaultFont)
+                name:SetFont("Fonts\\ARKai_T.ttf", 10)
                 name:SetShadowOffset(1, -1)
                 name:SetTextColor(1, 0.82, 0, 1) -- Yellow like the rest
 

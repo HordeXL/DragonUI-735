@@ -89,9 +89,7 @@ function TextSystem.CreateDualTextElements(parentFrame, barFrame, prefix, layer,
         local centerText = barFrame:CreateFontString(nil, layer, font)
         local fontPath, originalSize, flags = centerText:GetFont()
         if fontPath and originalSize then
-            -- 应用智能字体支持中文
-            local defaultFont = {fontPath, originalSize + 1, flags}
-            addon.FontSystem.ApplySmartFont(centerText, "HP", defaultFont)
+            centerText:SetFont("Fonts\\ARKai_T.ttf", originalSize + 1, flags)
         end
         centerText:SetPoint("CENTER", barFrame, "CENTER", 0, 0)
         centerText:SetJustifyH("CENTER")
@@ -104,9 +102,7 @@ function TextSystem.CreateDualTextElements(parentFrame, barFrame, prefix, layer,
         local leftText = barFrame:CreateFontString(nil, layer, font)
         local fontPath, originalSize, flags = leftText:GetFont()
         if fontPath and originalSize then
-            -- 应用智能字体支持中文
-            local defaultFont = {fontPath, originalSize + 1, flags}
-            addon.FontSystem.ApplySmartFont(leftText, "%", defaultFont)
+            leftText:SetFont("Fonts\\ARKai_T.ttf", originalSize + 1, flags)
         end
         leftText:SetPoint("LEFT", barFrame, "LEFT", 6, 0)
         leftText:SetJustifyH("LEFT")
@@ -119,9 +115,7 @@ function TextSystem.CreateDualTextElements(parentFrame, barFrame, prefix, layer,
         local rightText = barFrame:CreateFontString(nil, layer, font)
         local fontPath, originalSize, flags = rightText:GetFont()
         if fontPath and originalSize then
-            -- 应用智能字体支持中文
-            local defaultFont = {fontPath, originalSize + 1, flags}
-            addon.FontSystem.ApplySmartFont(rightText, "HP", defaultFont)
+            rightText:SetFont("Fonts\\ARKai_T.ttf", originalSize + 1, flags)
         end
 
         --  POSICIÓN ESPECIAL PARA TARGET Y FOCUS MANA TEXT
@@ -172,14 +166,10 @@ function TextSystem.UpdateDualText(parentFrame, prefix, formattedText, textForma
         end
         if leftText then
             leftText:SetText(formattedText.left or "")
-            -- 应用智能字体支持中文
-            addon.FontSystem.UpdateFontForText(leftText, formattedText.left or "", nil)
             leftText:Show()
         end
         if rightText then
             rightText:SetText(formattedText.right or "")
-            -- 应用智能字体支持中文
-            addon.FontSystem.UpdateFontForText(rightText, formattedText.right or "", nil)
             rightText:Show()
         end
     else
@@ -192,8 +182,6 @@ function TextSystem.UpdateDualText(parentFrame, prefix, formattedText, textForma
         end
         if centerText then
             centerText:SetText(formattedText or "")
-            -- 应用智能字体支持中文
-            addon.FontSystem.UpdateFontForText(centerText, formattedText or "", nil)
             centerText:Show()
         end
     end

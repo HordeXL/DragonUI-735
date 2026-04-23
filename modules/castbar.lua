@@ -585,24 +585,16 @@ local function SetCastText(unitType, text)
         return
     end
     
-    -- 应用智能字体：根据实际文本内容动态切换字体
-    local defaultFontPlayer = {"Fonts\\FRIZQT__.TTF", 12, "OUTLINE"}
-    local defaultFontOther = {"Fonts\\FRIZQT__.TTF", 10, "OUTLINE"}
-    local defaultFont = unitType == "player" and defaultFontPlayer or defaultFontOther
-    
     if textMode == "simple" then
         if frames.castTextCentered then
             frames.castTextCentered:SetText(text)
-            addon.FontSystem.UpdateFontForText(frames.castTextCentered, text, defaultFont)
         end
     else
         if frames.castText then
             frames.castText:SetText(text)
-            addon.FontSystem.UpdateFontForText(frames.castText, text, defaultFont)
         end
         if frames.castTextCompact then
             frames.castTextCompact:SetText(text)
-            addon.FontSystem.UpdateFontForText(frames.castTextCompact, text, defaultFont)
         end
     end
 end
@@ -741,11 +733,13 @@ local function CreateCastbar(unitType)
     -- Create text elements
     if unitType == "player" then
         frames.castText = frames.textBackground:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight')
+        frames.castText:SetFont("Fonts\\ARKai_T.ttf", 12, "OUTLINE")
         frames.castText:SetPoint('BOTTOMLEFT', frames.textBackground, 'BOTTOMLEFT', 8, 2)
         frames.castText:SetJustifyH("LEFT")
         frames.castText:Hide()
         
         frames.castTextCentered = frames.textBackground:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight')
+        frames.castTextCentered:SetFont("Fonts\\ARKai_T.ttf", 12, "OUTLINE")
         frames.castTextCentered:SetPoint('BOTTOM', frames.textBackground, 'BOTTOM', 0, 1)
         frames.castTextCentered:SetPoint('LEFT', frames.textBackground, 'LEFT', 8, 0)
         frames.castTextCentered:SetPoint('RIGHT', frames.textBackground, 'RIGHT', -8, 0)
@@ -753,21 +747,25 @@ local function CreateCastbar(unitType)
         frames.castTextCentered:Hide()
         
         frames.timeValue = frames.textBackground:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight')
+        frames.timeValue:SetFont("Fonts\\ARKai_T.ttf", 12, "OUTLINE")
         frames.timeValue:SetPoint('BOTTOMRIGHT', frames.textBackground, 'BOTTOMRIGHT', -50, 2)
         frames.timeValue:SetJustifyH("RIGHT")
         frames.timeValue:Hide()
         
         frames.timeMax = frames.textBackground:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight')
+        frames.timeMax:SetFont("Fonts\\ARKai_T.ttf", 12, "OUTLINE")
         frames.timeMax:SetPoint('LEFT', frames.timeValue, 'RIGHT', 2, 0)
         frames.timeMax:SetJustifyH("LEFT")
         frames.timeMax:Hide()
     else
         frames.castText = frames.textBackground:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
+        frames.castText:SetFont("Fonts\\ARKai_T.ttf", 10, "OUTLINE")
         frames.castText:SetPoint('BOTTOMLEFT', frames.textBackground, 'BOTTOMLEFT', 6, 2)
         frames.castText:SetJustifyH("LEFT")
         frames.castText:Hide()
         
         frames.castTextCentered = frames.textBackground:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
+        frames.castTextCentered:SetFont("Fonts\\ARKai_T.ttf", 10, "OUTLINE")
         frames.castTextCentered:SetPoint('BOTTOM', frames.textBackground, 'BOTTOM', 0, 1)
         frames.castTextCentered:SetPoint('LEFT', frames.textBackground, 'LEFT', 6, 0)
         frames.castTextCentered:SetPoint('RIGHT', frames.textBackground, 'RIGHT', -6, 0)
@@ -775,16 +773,19 @@ local function CreateCastbar(unitType)
         frames.castTextCentered:Hide()
         
         frames.castTextCompact = frames.textBackground:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
+        frames.castTextCompact:SetFont("Fonts\\ARKai_T.ttf", 10, "OUTLINE")
         frames.castTextCompact:SetPoint('BOTTOMLEFT', frames.textBackground, 'BOTTOMLEFT', 6, 2)
         frames.castTextCompact:SetJustifyH("LEFT")
         frames.castTextCompact:Hide()
         
         frames.castTimeText = frames.textBackground:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
+        frames.castTimeText:SetFont("Fonts\\ARKai_T.ttf", 10, "OUTLINE")
         frames.castTimeText:SetPoint('BOTTOMRIGHT', frames.textBackground, 'BOTTOMRIGHT', -6, 2)
         frames.castTimeText:SetJustifyH("RIGHT")
         frames.castTimeText:Hide()
         
         frames.castTimeTextCompact = frames.textBackground:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
+        frames.castTimeTextCompact:SetFont("Fonts\\ARKai_T.ttf", 10, "OUTLINE")
         frames.castTimeTextCompact:SetPoint('BOTTOMRIGHT', frames.textBackground, 'BOTTOMRIGHT', -6, 2)
         frames.castTimeTextCompact:SetJustifyH("RIGHT")
         frames.castTimeTextCompact:Hide()
@@ -830,33 +831,6 @@ local function CreateCastbar(unitType)
     
     -- Apply texture clipping system
     CreateTextureClipping(frames.castbar)
-    
-    -- 应用智能字体支持中文（在所有文本元素创建后）
-    local defaultFontPlayer = {"Fonts\\FRIZQT__.TTF", 12, "OUTLINE"}
-    local defaultFontOther = {"Fonts\\FRIZQT__.TTF", 10, "OUTLINE"}
-    local defaultFont = unitType == "player" and defaultFontPlayer or defaultFontOther
-    
-    if frames.castText then
-        addon.FontSystem.ApplySmartFont(frames.castText, "Spell Name", defaultFont)
-    end
-    if frames.castTextCentered then
-        addon.FontSystem.ApplySmartFont(frames.castTextCentered, "Spell Name", defaultFont)
-    end
-    if frames.castTextCompact then
-        addon.FontSystem.ApplySmartFont(frames.castTextCompact, "Spell", defaultFont)
-    end
-    if frames.castTimeText then
-        addon.FontSystem.ApplySmartFont(frames.castTimeText, "Time", defaultFont)
-    end
-    if frames.castTimeTextCompact then
-        addon.FontSystem.ApplySmartFont(frames.castTimeTextCompact, "Time", defaultFont)
-    end
-    if frames.timeValue then
-        addon.FontSystem.ApplySmartFont(frames.timeValue, "Time", defaultFont)
-    end
-    if frames.timeMax then
-        addon.FontSystem.ApplySmartFont(frames.timeMax, " / Time", defaultFont)
-    end
     
     -- OnUpdate handler 
     frames.castbar:SetScript('OnUpdate', function(self, elapsed)

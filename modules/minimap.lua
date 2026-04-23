@@ -1680,11 +1680,7 @@ function MinimapModule:ApplyAllSettings()
         local clockText = GetClockTextFrame()
         if clockText then
             local font, _, flags = clockText:GetFont()
-            
-            -- 应用智能字体支持中文时间格式
-            local defaultFont = {font or "Fonts\\FRIZQT__.TTF", settings.clock_font_size, flags or ""}
-            local currentTime = GameTime_GetGameTime(true) or ""
-            addon.FontSystem.ApplySmartFont(clockText, currentTime, defaultFont)
+            clockText:SetFont("Fonts\\ARKai_T.ttf", settings.clock_font_size, flags)
 
         else
 
@@ -1694,11 +1690,7 @@ function MinimapModule:ApplyAllSettings()
     --  APLICAR ZONE TEXT FONT SIZE
     if settings.zonetext_font_size and MinimapZoneText then
         local font, _, flags = MinimapZoneText:GetFont()
-        
-        -- 应用智能字体支持中文区域名称
-        local defaultFont = {font or "Fonts\\FRIZQT__.TTF", settings.zonetext_font_size, flags or ""}
-        local zoneName = GetMinimapZoneText() or ""
-        addon.FontSystem.ApplySmartFont(MinimapZoneText, zoneName, defaultFont)
+        MinimapZoneText:SetFont("Fonts\\ARKai_T.ttf", settings.zonetext_font_size, flags)
     end
 
     --  APLICAR BLIP TEXTURE (NEW VS OLD STYLE)
