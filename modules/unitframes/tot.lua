@@ -75,16 +75,16 @@ local function CreateToTFrame()
     border:SetAllPoints(f)
     Module.border = border
 
-    -- Portrait (ARTWORK layer, between border and overlay)
+    -- 头像（ARTWORK 层，位于边框和覆盖层之间）
     local portrait = f:CreateTexture(nil, "ARTWORK")
-    portrait:SetSize(48, 48)
-    portrait:SetPoint("LEFT", f, "LEFT", 14, 0)
+    portrait:SetSize(33, 33)
+    portrait:SetPoint("LEFT", f, "LEFT", 8, 8)
     Module.portrait = portrait
 
     -- Health bar
     local hb = CreateFrame("StatusBar", nil, f)
-    hb:SetSize(120, 12)
-    hb:SetPoint("LEFT", portrait, "RIGHT", 2, 3)
+    hb:SetSize(70, 10)
+    hb:SetPoint("LEFT", portrait, "RIGHT", 3, 2)
     hb:SetStatusBarTexture(TEXTURES.BAR_PREFIX .. "Health")
     hb:GetStatusBarTexture():SetDrawLayer("ARTWORK", 1)
     hb:SetMinMaxValues(0, 100)
@@ -94,7 +94,7 @@ local function CreateToTFrame()
 
     -- Power bar
     local pb = CreateFrame("StatusBar", nil, f)
-    pb:SetSize(120, 8)
+    pb:SetSize(70, 8)
     pb:SetPoint("LEFT", portrait, "RIGHT", 2, -8)
     pb:SetStatusBarTexture(TEXTURES.BAR_PREFIX .. "Mana")
     pb:GetStatusBarTexture():SetDrawLayer("ARTWORK", 1)
@@ -105,7 +105,7 @@ local function CreateToTFrame()
 
     -- Name text (OVERLAY, on top of everything)
     local nt = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    nt:SetPoint("BOTTOMLEFT", portrait, "TOPLEFT", 0, 2)
+    nt:SetPoint("BOTTOMLEFT", portrait, "TOPLEFT", 50, -10)
     nt:SetWidth(90)
     nt:SetJustifyH("LEFT")
     nt:SetTextColor(1.0, 0.82, 0.0, 1.0)
