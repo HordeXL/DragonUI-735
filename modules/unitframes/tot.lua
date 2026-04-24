@@ -59,7 +59,7 @@ local function CreateToTFrame()
     end
 
     local f = CreateFrame("Frame", "DragonUI_ToT", UIParent)
-    f:SetSize(200, 58)
+    f:SetSize(128, 64)
     f:SetFrameLevel(50)
     f:Hide()
 
@@ -78,7 +78,7 @@ local function CreateToTFrame()
     -- Portrait (ARTWORK layer, between border and overlay)
     local portrait = f:CreateTexture(nil, "ARTWORK")
     portrait:SetSize(48, 48)
-    portrait:SetPoint("LEFT", f, "LEFT", 4, 0)
+    portrait:SetPoint("LEFT", f, "LEFT", 14, 0)
     Module.portrait = portrait
 
     -- Health bar
@@ -119,10 +119,10 @@ local function CreateToTFrame()
     eliteTex:Hide()
     Module.elite = eliteTex
 
-    -- Position relative to TargetFrame
+    -- Position relative to TargetFrame (anchored to BOTTOMLEFT)
     local config = GetConfig()
     f:ClearAllPoints()
-    f:SetPoint(config.anchor or "BOTTOMRIGHT", _G.TargetFrame or UIParent, config.anchorParent or "BOTTOMRIGHT", config.x or 22, config.y or -15)
+    f:SetPoint(config.anchor or "BOTTOMLEFT", _G.TargetFrame or UIParent, config.anchorParent or "BOTTOMLEFT", config.x or -50, config.y or -30)
     f:SetScale(config.scale or 1.0)
 
     Module.frame = f
@@ -157,8 +157,27 @@ local function UpdateToT()
     local targetFrame = _G.TargetFrame
     if targetFrame then
         f:ClearAllPoints()
-        f:SetPoint(config.anchor or "BOTTOMRIGHT", targetFrame, config.anchorParent or "BOTTOMRIGHT", config.x or 22, config.y or -15)
+        f:SetPoint(config.anchor or "BOTTOMLEFT", targetFrame, config.anchorParent or "BOTTOMLEFT", config.x or -50, config.y or -30)
         f:SetScale(config.scale or 1.0)
+        
+        -- 同步更新编辑锚点帧的位置（用于编辑模式）
+        if Module.totFrame and addon.EditorMode and addon.EditorMode:IsActive() then
+            -- 获取 ToT 相对于 UIParent 的绝对位置
+            local point, relativeTo, relativePoint, xOfs, yOfs = f:GetPoint(1)
+            if relativeTo then
+                -- 计算相对于 UIParent 的绝对坐标
+                local relX, relY = relativeTo:GetCenter()
+                if relX and relY then
+                    local uiWidth, uiHeight = UIParent:GetSize()
+                    local absX = relX + xOfs
+                    local absY = relY + yOfs
+                    
+                    -- 更新编辑锚点帧的位置
+                    Module.totFrame:ClearAllPoints()
+                    Module.totFrame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", absX, absY)
+                end
+            end
+        end
     end
 
     -- Show
@@ -272,9 +291,8 @@ local function OnEvent(self, event, ...)
     if event == "ADDON_LOADED" then
         local name = ...
         if name == "DragonUI" and not Module.initialized then
-            -- Create anchor frame for editor mode
-            Module.totFrame = CreateFrame("Frame", "DragonUI_ToT_Anchor", UIParent)
-            Module.totFrame:SetSize(120, 47)
+            -- Create anchor frame for editor mode using addon.CreateUIFrame (enables dragging)
+            Module.totFrame = addon.CreateUIFrame(128, 64, "ToT_Anchor")
             Module.totFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 370, -80)
             Module.initialized = true
 
@@ -283,7 +301,35 @@ local function OnEvent(self, event, ...)
                 name = "tot",
                 frame = Module.totFrame,
                 configPath = {"widgets", "tot"},
-                hasTarget = function() return UnitExists("target") end,
+                -- 移除 hasTarget 限制，让编辑框始终可见
+                -- 添加 showTest/hideTest 来显示/隐藏假数据
+                showTest = function()
+                    -- 在编辑模式下强制显示 ToT 框体（即使没有目标）
+                    if Module.frame and not UnitExists("targettarget") then
+                        Module.frame:Show()
+                        -- 设置假数据用于预览
+                        if Module.portrait then
+                            SetPortraitTexture(Module.portrait, "player")  -- 使用玩家头像作为示例
+                        end
+                        if Module.nameText then
+                            Module.nameText:SetText("目标的目标 (预览)")
+                        end
+                        if Module.healthBar then
+                            Module.healthBar:SetMinMaxValues(0, 100)
+                            Module.healthBar:SetValue(75)
+                        end
+                        if Module.powerBar then
+                            Module.powerBar:SetMinMaxValues(0, 100)
+                            Module.powerBar:SetValue(50)
+                        end
+                    end
+                end,
+                hideTest = function()
+                    -- 退出编辑模式时，如果没有真实目标则隐藏
+                    if Module.frame and not UnitExists("targettarget") then
+                        Module.frame:Hide()
+                    end
+                end,
                 module = Module,
             })
         end
@@ -322,12 +368,14 @@ local function RefreshFrame()
 end
 
 local function ResetFrame()
-    addon:SetConfigValue("unitframe", "tot", "x", 22)
-    addon:SetConfigValue("unitframe", "tot", "y", -15)
+    addon:SetConfigValue("unitframe", "tot", "x", -50)
+    addon:SetConfigValue("unitframe", "tot", "y", -30)
     addon:SetConfigValue("unitframe", "tot", "scale", 1.0)
+    addon:SetConfigValue("unitframe", "tot", "anchor", "BOTTOMLEFT")
+    addon:SetConfigValue("unitframe", "tot", "anchorParent", "BOTTOMLEFT")
     if Module.frame then
         Module.frame:ClearAllPoints()
-        Module.frame:SetPoint("BOTTOMRIGHT", _G.TargetFrame, "BOTTOMRIGHT", 22, -15)
+        Module.frame:SetPoint("BOTTOMLEFT", _G.TargetFrame, "BOTTOMLEFT", -50, -30)
         Module.frame:SetScale(1.0)
     end
 end
