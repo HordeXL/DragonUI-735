@@ -40,6 +40,11 @@ local defaults = {
                 posX = 63,
                 posY = -100
             },
+            tot = {
+                anchor = "TOPLEFT",
+                posX = 370,
+                posY = -80
+            },
             petbar = {
                 anchor = "BOTTOM",
                 posX = 1,

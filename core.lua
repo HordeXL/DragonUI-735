@@ -248,6 +248,20 @@ function addon:RefreshConfig()
         end
     end
 
+    if addon.RefreshToTFrame then
+        local success, err = pcall(addon.RefreshToTFrame);
+        if not success then
+            table.insert(failed, "RefreshToTFrame")
+        end
+    end
+
+    if addon.RefreshToFFrame then
+        local success, err = pcall(addon.RefreshToFFrame);
+        if not success then
+            table.insert(failed, "RefreshToFFrame")
+        end
+    end
+
     if addon.RefreshPartyFrames then
         local success, err = pcall(addon.RefreshPartyFrames);
         if not success then
