@@ -155,29 +155,23 @@ local function UpdateToT()
     -- Position relative to TargetFrame
     local config = GetConfig()
     local targetFrame = _G.TargetFrame
-    if targetFrame then
+    
+    -- 检查是否在编辑模式
+    local isInEditMode = addon.EditorMode and addon.EditorMode:IsActive()
+    
+    if isInEditMode and Module.totFrame then
+        -- 编辑模式：根据编辑锚点帧的位置来定位实际 ToT 框体
+        local point, relativeTo, relativePoint, xOfs, yOfs = Module.totFrame:GetPoint(1)
+        if relativeTo then
+            f:ClearAllPoints()
+            f:SetPoint("CENTER", Module.totFrame, "CENTER", 0, 0)
+            f:SetScale(config.scale or 1.0)
+        end
+    elseif targetFrame then
+        -- 正常模式：相对于 TargetFrame 定位
         f:ClearAllPoints()
         f:SetPoint(config.anchor or "BOTTOMLEFT", targetFrame, config.anchorParent or "BOTTOMLEFT", config.x or -50, config.y or -30)
         f:SetScale(config.scale or 1.0)
-        
-        -- 同步更新编辑锚点帧的位置（用于编辑模式）
-        if Module.totFrame and addon.EditorMode and addon.EditorMode:IsActive() then
-            -- 获取 ToT 相对于 UIParent 的绝对位置
-            local point, relativeTo, relativePoint, xOfs, yOfs = f:GetPoint(1)
-            if relativeTo then
-                -- 计算相对于 UIParent 的绝对坐标
-                local relX, relY = relativeTo:GetCenter()
-                if relX and relY then
-                    local uiWidth, uiHeight = UIParent:GetSize()
-                    local absX = relX + xOfs
-                    local absY = relY + yOfs
-                    
-                    -- 更新编辑锚点帧的位置
-                    Module.totFrame:ClearAllPoints()
-                    Module.totFrame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", absX, absY)
-                end
-            end
-        end
     end
 
     -- Show
@@ -328,6 +322,51 @@ local function OnEvent(self, event, ...)
                     -- 退出编辑模式时，如果没有真实目标则隐藏
                     if Module.frame and not UnitExists("targettarget") then
                         Module.frame:Hide()
+                    end
+                end,
+                -- 自定义 onHide 来处理位置同步
+                onHide = function()
+                    -- 当退出编辑模式时，将编辑锚点帧的位置转换回 unitframe.tot 配置
+                    if Module.totFrame and Module.frame then
+                        -- 获取编辑锚点帧的中心坐标（相对于 UIParent BOTTOMLEFT）
+                        local totCenterX, totCenterY = Module.totFrame:GetCenter()
+                        
+                        if totCenterX and totCenterY then
+                            -- 获取 TargetFrame 的位置
+                            local targetFrame = _G.TargetFrame
+                            if targetFrame and targetFrame:IsShown() then
+                                -- TargetFrame 的 BOTTOMLEFT 坐标
+                                local tfWidth, tfHeight = targetFrame:GetSize()
+                                local tfCenterX, tfCenterY = targetFrame:GetCenter()
+                                
+                                if tfCenterX and tfCenterY then
+                                    local tfBLX = tfCenterX - (tfWidth / 2)
+                                    local tfBLY = tfCenterY - (tfHeight / 2)
+                                    
+                                    -- ToT 框体的尺寸
+                                    local totWidth, totHeight = Module.frame:GetSize()
+                                    
+                                    -- ToT 的 BOTTOMLEFT 坐标（因为编辑锚点帧中心对齐 ToT 中心）
+                                    local totBLX = totCenterX - (totWidth / 2)
+                                    local totBLY = totCenterY - (totHeight / 2)
+                                    
+                                    -- 计算相对于 TargetFrame BOTTOMLEFT 的偏移
+                                    local relX = totBLX - tfBLX
+                                    local relY = totBLY - tfBLY
+                                    
+                                    -- 保存到 unitframe.tot 配置
+                                    addon:SetConfigValue("unitframe", "tot", "x", math.floor(relX))
+                                    addon:SetConfigValue("unitframe", "tot", "y", math.floor(relY))
+                                    addon:SetConfigValue("unitframe", "tot", "anchor", "BOTTOMLEFT")
+                                    addon:SetConfigValue("unitframe", "tot", "anchorParent", "BOTTOMLEFT")
+                                    
+                                    print(string.format("[DragonUI] ToT 位置已保存: x=%.0f, y=%.0f (相对于 TargetFrame BOTTOMLEFT)", relX, relY))
+                                end
+                            else
+                                -- 如果 TargetFrame 不可见，保存为相对于 UIParent 的位置
+                                print("[DragonUI] 警告: TargetFrame 不可见，ToT 位置可能不准确")
+                            end
+                        end
                     end
                 end,
                 module = Module,
