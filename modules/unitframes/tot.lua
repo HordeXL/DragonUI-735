@@ -407,16 +407,36 @@ local function RefreshFrame()
 end
 
 local function ResetFrame()
+    -- 重置 unitframe.tot 配置（正常模式相对于 TargetFrame 的位置）
     addon:SetConfigValue("unitframe", "tot", "x", -50)
     addon:SetConfigValue("unitframe", "tot", "y", -30)
     addon:SetConfigValue("unitframe", "tot", "scale", 1.0)
     addon:SetConfigValue("unitframe", "tot", "anchor", "BOTTOMLEFT")
     addon:SetConfigValue("unitframe", "tot", "anchorParent", "BOTTOMLEFT")
+    
+    -- 重置 widgets.tot 配置（编辑模式的绝对位置）
+    if addon.db and addon.db.profile and addon.db.profile.widgets then
+        addon.db.profile.widgets.tot = {
+            anchor = "TOPLEFT",
+            posX = 370,
+            posY = -80,
+        }
+    end
+    
+    -- 更新实际 ToT 框体的位置
     if Module.frame then
         Module.frame:ClearAllPoints()
         Module.frame:SetPoint("BOTTOMLEFT", _G.TargetFrame, "BOTTOMLEFT", -50, -30)
         Module.frame:SetScale(1.0)
     end
+    
+    -- 更新编辑锚点帧的位置
+    if Module.totFrame then
+        Module.totFrame:ClearAllPoints()
+        Module.totFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 370, -80)
+    end
+    
+    print("[DragonUI] ToT 位置已重置为默认值")
 end
 
 -- Export API

@@ -360,6 +360,14 @@ function EditorMode:ResetAllPositions()
         addon.db.profile.additional.totem = addon:CopyTable(addon.defaults.profile.additional.totem)
     end
     
+    -- NUEVO: Resetear también unitframe para ToT y otros frames
+    if addon.defaults and addon.defaults.profile and addon.defaults.profile.unitframe then
+        if not addon.db.profile.unitframe then
+            addon.db.profile.unitframe = {}
+        end
+        addon.db.profile.unitframe = addon:CopyTable(addon.defaults.profile.unitframe)
+    end
+    
     -- Usar ReloadUI para aplicar completamente los cambios
     ReloadUI()
 end
