@@ -23,30 +23,28 @@ local function ApplyWidgetPosition()
         return
     end
 
-    -- SEGURO: No modificar frames protegidos en combate
-    if InCombatLockdown() then
-        return
-    end
-
     local widgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.target
-    
+
     if widgetConfig then
+        -- Siempre posicionar el anchor frame (custom frame, no protegido en combate)
         Module.targetFrame:ClearAllPoints()
-        Module.targetFrame:SetPoint(widgetConfig.anchor or "TOPLEFT", UIParent, widgetConfig.anchor or "TOPLEFT", 
+        Module.targetFrame:SetPoint(widgetConfig.anchor or "TOPLEFT", UIParent, widgetConfig.anchor or "TOPLEFT",
                                    widgetConfig.posX or 250, widgetConfig.posY or -4)
-        
-        -- También aplicar al frame de Blizzard
-        TargetFrame:ClearAllPoints()
-        TargetFrame:SetPoint("CENTER", Module.targetFrame, "CENTER", 20, -7)
-        
-        
+
+        -- No modificar TargetFrame (Blizzard) en combate - se reaplica al salir de combate
+        if not InCombatLockdown() then
+            TargetFrame:ClearAllPoints()
+            TargetFrame:SetPoint("CENTER", Module.targetFrame, "CENTER", 20, -7)
+        end
+
     else
         -- Fallback a posición por defecto
         Module.targetFrame:ClearAllPoints()
         Module.targetFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 250, -4)
-        TargetFrame:ClearAllPoints()
-        TargetFrame:SetPoint("CENTER", Module.targetFrame, "CENTER", 0, 0)
-        
+        if not InCombatLockdown() then
+            TargetFrame:ClearAllPoints()
+            TargetFrame:SetPoint("CENTER", Module.targetFrame, "CENTER", 0, 0)
+        end
     end
 end
 
@@ -933,6 +931,15 @@ local function OnEvent(self, event, ...)
         if unit == "target" and UnitExists("target") and Module.textSystem then
             Module.textSystem.update()
         end
+
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        -- 战斗结束后重新定位 Blizzard TargetFrame（战斗中无法修改）
+        if Module.configured then
+            ApplyWidgetPosition()
+            if UnitExists("target") then
+                ReapplyElementPositions()
+            end
+        end
     end
 
 end
@@ -952,6 +959,8 @@ if not Module.eventsFrame then
     Module.eventsFrame:RegisterEvent("UNIT_LEVEL")
     Module.eventsFrame:RegisterEvent("UNIT_NAME_UPDATE")
     Module.eventsFrame:RegisterEvent("UNIT_PORTRAIT_UPDATE")
+    --  EVENTO PARA REAPLICAR POSICIÓN AL SALIR DE COMBATE
+    Module.eventsFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     --  EVENTOS CRÍTICOS PARA EL TEXT SYSTEM
     Module.eventsFrame:RegisterEvent("UNIT_HEALTH")
     Module.eventsFrame:RegisterEvent("UNIT_MAXHEALTH") 
