@@ -1,7 +1,7 @@
 # DragonUI - Legion 7.3.5 版本
 
-![界面版本](https://img.shields.io/badge/Interface-30300-blue)
-![魔兽世界版本](https://img.shields.io/badge/WoW-3.3.5a-orange)
+![界面版本](https://img.shields.io/badge/Interface-70300-blue)
+![魔兽世界版本](https://img.shields.io/badge/WoW-7.3.5-orange)
 ![状态](https://img.shields.io/badge/Status-Stable-green)
 
 一个个人项目，将《巨龙时代》的 UI 美学带到《军团再临》7.3.5 版本。
@@ -47,7 +47,7 @@
 本项目结合并改编了多个来源的代码：
 
 - **[s0h2x](https://github.com/s0h2x)** – 两个特定插件：一个用于动作条，另一个用于小地图，已合并并集成到 DragonUI 中。
-- **[KarlHeinz_Schneider - Dragonflight UI (Classic)](https://www.curseforge.com/wow/addons/dragonflight-ui-classic)** – 原始插件，从中获取了许多元素并反向移植/适配到 3.3.5a，包括微型菜单和其他基于此设计从头构建的功能。
+- **[KarlHeinz_Schneider - Dragonflight UI (Classic)](https://www.curseforge.com/wow/addons/dragonflight-ui-classic)** – 原始插件，从中获取了许多元素并反向移植/适配到 7.3.5，包括微型菜单和其他基于此设计从头构建的功能。
 - **[a3st - RetailUI](https://github.com/a3st/RetailUI)** – 大量代码用作参考并直接集成，用于 UI 元素和实现方法。
 
 ## 特别感谢

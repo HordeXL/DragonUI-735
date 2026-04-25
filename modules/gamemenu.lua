@@ -4,7 +4,7 @@ local addon = select(2,...);
 -- DRAGONUI GAME MENU BUTTON MODULE (WOW 3.3.5A)
 -- =================================================================
 
--- Variables locales para compatibilidad WoW 3.3.5a
+-- Variables locales para compatibilidad WoW 7.3.5
 local CreateFrame = CreateFrame
 local GameMenuFrame = GameMenuFrame
 local HideUIPanel = HideUIPanel
@@ -14,7 +14,7 @@ local dragonUIButton = nil
 local buttonAdded = false
 local buttonPositioned = false -- Nuevo flag para evitar reposicionamiento múltiple
 
--- Lista de todos los botones del game menu en orden de aparición (WoW 3.3.5a)
+-- Lista de todos los botones del game menu en orden de aparición (WoW 7.3.5)
 local GAME_MENU_BUTTONS = {
     "GameMenuButtonHelp",
     "GameMenuButtonWhatsNew", 
@@ -139,14 +139,14 @@ local function CreateDragonUIButton()
         return false 
     end
     
-    -- Crear el botón con template apropiado para WoW 3.3.5a
+    -- Crear el botón con template apropiado para WoW 7.3.5
     dragonUIButton = CreateFrame("Button", "DragonUIGameMenuButton", GameMenuFrame, "GameMenuButtonTemplate")
     
     -- Configurar el texto del botón
     dragonUIButton:SetText("DragonUI")
     
     -- Configurar el ancho para que coincida con otros botones
-    dragonUIButton:SetWidth(144) -- Ancho estándar de botones del game menu en 3.3.5a
+    dragonUIButton:SetWidth(144) -- Ancho estándar de botones del game menu en 7.3.5
     
     -- Aplicar colores azulados estilo Dragonflight
     local fontString = dragonUIButton:GetFontString()
@@ -168,7 +168,7 @@ local function CreateDragonUIButton()
         dragonUIButton:SetHighlightFontObject("GameFontHighlight") 
     end
     
-    -- Intentar colorear el fondo del botón (compatible con 3.3.5a)
+    -- Intentar colorear el fondo del botón (compatible con 7.3.5)
     local normalTexture = dragonUIButton:GetNormalTexture()
     if normalTexture then
         -- Tinte azul suave para el fondo: RGB(50, 100, 200) con alpha 0.8

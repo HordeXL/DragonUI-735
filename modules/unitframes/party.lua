@@ -348,7 +348,7 @@ local function GetPowerBarTexture(unit)
 
     local powerType = UnitPowerType(unit)
 
-    -- In 3.3.5a types are numbers, not strings
+    -- In 7.3.5 types are numbers, not strings
     if powerType == 0 then -- MANA
         return TEXTURES.manaBar
     elseif powerType == 1 then -- RAGE
@@ -357,7 +357,7 @@ local function GetPowerBarTexture(unit)
         return TEXTURES.focusBar
     elseif powerType == 3 then -- ENERGY
         return TEXTURES.energyBar
-    elseif powerType == 6 then -- RUNIC_POWER (if it exists in 3.3.5a)
+    elseif powerType == 6 then -- RUNIC_POWER (if it exists in 7.3.5)
         return TEXTURES.runicPowerBar
     else
         return TEXTURES.manaBar -- Default
@@ -495,7 +495,7 @@ local function ScheduleTextUpdate(frameIndex)
     -- If no update is scheduled, create one
     if not updateScheduled then
         updateScheduled = true
-        -- Use OnUpdate with minimal delay (compatible with 3.3.5a)
+        -- Use OnUpdate with minimal delay (compatible with 7.3.5)
         local elapsed = 0
         updateFrame:SetScript("OnUpdate", function(self, dt)
             elapsed = elapsed + dt
@@ -1384,7 +1384,7 @@ local function SetupPartyHooks()
         end
     end)
 
-    -- Hook adicional para party member updates (compatible con 3.3.5a)
+    -- Hook adicional para party member updates (compatible con 7.3.5)
     hooksecurefunc("PartyMemberFrame_OnEvent", function(frame, event)
         if frame and frame:GetName() and frame:GetName():match("^PartyMemberFrame%d+$") then
             if event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" then

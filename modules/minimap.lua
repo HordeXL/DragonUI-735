@@ -166,7 +166,7 @@ end
 
 -- CLEANUP: Función para limpiar hooks
 local function CleanupSecureHooks()
-    -- No hay manera directa de unhook en WoW 3.3.5a, pero trackear para debugging
+    -- No hay manera directa de unhook en WoW 7.3.5, pero trackear para debugging
     MinimapModule.hooks = {}
 end
 

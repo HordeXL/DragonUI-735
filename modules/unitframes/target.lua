@@ -1,7 +1,7 @@
 local addon = select(2, ...)
 
 -- ============================================================================
--- DRAGONUI TARGET FRAME MODULE - Optimized for WoW 3.3.5a
+-- DRAGONUI TARGET FRAME MODULE - Optimized for WoW 7.3.5
 -- ============================================================================
 
 -- Module namespace

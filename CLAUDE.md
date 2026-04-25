@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DragonUI is a World of Warcraft addon (targeting WotLK 3.3.5a / Interface 70300) that brings Dragonflight-era UI aesthetics to the classic client. It is a Lua addon using the Ace3 framework, with no build step or test suite.
+DragonUI is a World of Warcraft addon (targeting Legion 7.3.5 / Interface 70300) that brings Dragonflight-era UI aesthetics to the classic client. It is a Lua addon using the Ace3 framework, with no build step or test suite.
 
 ## Development
 
@@ -60,7 +60,7 @@ Config values flow: `database.lua` (defaults) → AceDB `addon.db.profile` → `
 
 ### Texture Atlas System
 
-WoW 3.3.5a lacks the modern `SetAtlas` API. DragonUI polyfills it by storing atlas definitions as `{texture_path, width, height, left, right, top, bottom, horizTile, vertTile}` tuples and applying them via `SetTexCoord` + `SetTexture`. Atlas data is split between [Atlas.lua](Atlas.lua) (bag sprites) and the `DRAGON_ATLAS` table in [core.lua](core.lua) (gryphon sprites).
+WoW 7.3.5 lacks the modern `SetAtlas` API. DragonUI polyfills it by storing atlas definitions as `{texture_path, width, height, left, right, top, bottom, horizTile, vertTile}` tuples and applying them via `SetTexCoord` + `SetTexture`. Atlas data is split between [Atlas.lua](Atlas.lua) (bag sprites) and the `DRAGON_ATLAS` table in [core.lua](core.lua) (gryphon sprites).
 
 ## Conventions
 

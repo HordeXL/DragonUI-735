@@ -474,7 +474,7 @@ local function GetAuraOffset(unit)
     
     local totalOffset = 0
     if buffCount > 0 or debuffCount > 0 then
-        -- WotLK 3.3.5a displays 8 auras per row (changed from 6 in earlier versions)
+        -- Legion 7.3.5 displays 8 auras per row (changed from 6 in earlier versions)
         local AURAS_PER_ROW = 8
         -- Each aura row is 22 pixels tall (including spacing)
         local AURA_ROW_HEIGHT = 22

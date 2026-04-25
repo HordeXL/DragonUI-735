@@ -1,7 +1,7 @@
 local addon = select(2, ...)
 
 -- ====================================================================
--- DRAGONUI PLAYER FRAME MODULE - Optimized for WoW 3.3.5a
+-- DRAGONUI PLAYER FRAME MODULE - Optimized for WoW 7.3.5
 -- ====================================================================
 
 -- ============================================================================
@@ -167,7 +167,7 @@ end
 -- Hide Blizzard's original player frame texts permanently using alpha 0
 local function HideBlizzardPlayerTexts()
     -- Get Blizzard's ORIGINAL text elements (not our custom ones)
-    local blizzardTexts = { -- These are the actual Blizzard frame text elements in WoW 3.3.5a
+    local blizzardTexts = { -- These are the actual Blizzard frame text elements in WoW 7.3.5
     PlayerFrameHealthBar.TextString, PlayerFrameManaBar.TextString, -- Alternative names that might exist
     _G.PlayerFrameHealthBarText, _G.PlayerFrameManaBarText}
 
@@ -1903,7 +1903,7 @@ hooksecurefunc("PlayerFrame_ToPlayerArt", function()
         ChangePlayerframe()
         UpdateLeadershipIcons()
         
-        -- Con delay: segundo intento más robusto usando OnUpdate (compatible con 3.3.5a)
+        -- Con delay: segundo intento más robusto usando OnUpdate (compatible con 7.3.5)
         local delayFrame = CreateFrame("Frame")
         local attempts = 0
         delayFrame:SetScript("OnUpdate", function(self, elapsed)

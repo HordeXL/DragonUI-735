@@ -1,6 +1,6 @@
 ## Interface: 70300
 ## Title:  |cfffff0f5DragonUI|r
-## Notes: |cffcaf7faDragonflightUI for 3.3.5a|r
+## Notes: |cffcaf7faDragonflightUI for 7.3.5|r
 ## Version: 2.3
 ## Author: NeticSoul
 ## SavedVariables: DragonUIDB, DragonUIDebugLog
