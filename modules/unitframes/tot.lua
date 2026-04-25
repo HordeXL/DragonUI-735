@@ -354,7 +354,7 @@ local function OnEvent(self, event, ...)
                             SetPortraitTexture(Module.portrait, "player")  -- 使用玩家头像作为示例
                         end
                         if Module.nameText then
-                            Module.nameText:SetText("目标的目标 (预览)")
+                            Module.nameText:SetText("")
                         end
                         if Module.healthBar then
                             Module.healthBar:SetMinMaxValues(0, 100)
