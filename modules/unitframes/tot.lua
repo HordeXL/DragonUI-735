@@ -137,7 +137,7 @@ local function CreateToTFrame()
 
     -- Name text (OVERLAY, on top of everything)
     local nt = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    nt:SetPoint("BOTTOMLEFT", portrait, "TOPLEFT", 50, -10)
+    nt:SetPoint("BOTTOMLEFT", portrait, "TOPLEFT", 35, -10)
     nt:SetWidth(90)
     nt:SetJustifyH("LEFT")
     nt:SetTextColor(1.0, 0.82, 0.0, 1.0)
@@ -276,9 +276,9 @@ local function UpdateToT()
     if Module.nameText then
         local name = UnitName("targettarget")
         Module.nameText:SetText(name or "")
-        local font, size, flags = Module.nameText:GetFont()
-        if font and size then
-            Module.nameText:SetFont(font, math.max(size, 10), flags)
+        local font, _, flags = Module.nameText:GetFont()
+        if font then
+            Module.nameText:SetFont(font, 11, flags)
         end
     end
 
