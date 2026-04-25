@@ -81,8 +81,44 @@ end
 -- =============================================================================
 -- QUEST TRACKER STYLING (simplified - no hooks)
 -- =============================================================================
-local function WatchFrame_Collapse(self)
-    self:SetWidth(WATCHFRAME_EXPANDEDWIDTH)
+-- 在 7.3.5 Legion 中，ObjectiveTrackerFrame 默认折叠只显示少量任务
+-- 强制展开以显示所有追踪的任务
+local function ForceExpandObjectiveTracker()
+    -- 尝试多种方式展开任务追踪器
+    if ObjectiveTrackerFrame then
+        -- 设置展开宽度
+        local expandWidth = WATCHFRAME_EXPANDEDWIDTH or 280
+        ObjectiveTrackerFrame:SetWidth(expandWidth)
+
+        -- 如果有折叠状态，强制设为展开
+        if ObjectiveTrackerFrame.collapsed then
+            ObjectiveTrackerFrame.collapsed = false
+        end
+        if ObjectiveTrackerFrame.isCollapsed then
+            ObjectiveTrackerFrame.isCollapsed = false
+        end
+
+        -- 强制显示所有任务模块
+        if ObjectiveTrackerFrame.MODULES then
+            for _, module in pairs(ObjectiveTrackerFrame.MODULES) do
+                if module and module.forceUpdate then
+                    module:forceUpdate()
+                end
+            end
+        end
+    end
+
+    -- 兼容旧版 WatchFrame
+    local wf = WatchFrame
+    if wf then
+        wf:SetWidth(WATCHFRAME_EXPANDEDWIDTH or 250)
+    end
+end
+
+-- 钩子兼容：尝试钩住 Legion 的展开函数，如果不存在则用旧的
+local hookSuccess, _ = pcall(hooksecurefunc, 'ObjectiveTrackerFrame_Collapse', ForceExpandObjectiveTracker)
+if not hookSuccess then
+    pcall(hooksecurefunc, 'WatchFrame_Collapse', ForceExpandObjectiveTracker)
 end
 
 -- Función para aplicar el styling del header de forma independiente
@@ -123,17 +159,19 @@ end
 local function ForceUpdateQuestTracker()
     if InCombatLockdown() then return end
 
-    -- AÑADIR: Forzar actualización real de Blizzard
-    if WatchFrame and WatchFrame:IsVisible() then
-        pcall(function()
-            -- Esto es seguro - solo llamamos a la función original de Blizzard
-            if WatchFrame_Update then
-                WatchFrame_Update() -- Sin parámetros, usa self automáticamente
+    -- 7.3.5 Legion: ObjectiveTrackerFrame 使用模块化系统
+    pcall(function()
+        if ObjectiveTrackerFrame then
+            -- 强制展开以显示所有追踪的任务
+            ForceExpandObjectiveTracker()
+            -- 刷新 ObjectiveTrackerFrame 的模块
+            if ObjectiveTrackerFrame_Update then
+                ObjectiveTrackerFrame_Update()
             end
-        end)
-    end
+        end
+    end)
 
-    -- Luego aplicar nuestro styling
+    -- 应用 DragonUI 样式（在 pcall 中安全执行，兼容新旧 API）
     pcall(ApplyQuestTrackerStyling)
 end
 
@@ -266,9 +304,14 @@ local function InstallQuestTrackerHooks()
         return
     end
 
-    -- SOLO hook de WatchFrame_Collapse para el ancho
-    -- NO hookear WatchFrame_Update porque causa errores en Blizzard
-    hooksecurefunc('WatchFrame_Collapse', WatchFrame_Collapse)
+    -- 确保 QuestObjectiveTracker 在任务变更时刷新（Legion 兼容）
+    pcall(function()
+        if QuestObjectiveTracker and QuestObjectiveTracker.forceUpdate then
+            hooksecurefunc(QuestObjectiveTracker, 'forceUpdate', function()
+                ForceExpandObjectiveTracker()
+            end)
+        end
+    end)
 
     -- Hook adicionales para asegurar que las quests se muestren
     hooksecurefunc('AddQuestWatch', function()

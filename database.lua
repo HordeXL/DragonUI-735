@@ -40,11 +40,6 @@ local defaults = {
                 posX = 63,
                 posY = -100
             },
-            tot = {
-                anchor = "TOPLEFT",
-                posX = 370,
-                posY = -80
-            },
             petbar = {
                 anchor = "BOTTOM",
                 posX = 1,
@@ -388,7 +383,7 @@ local defaults = {
             tot = {
                 classcolor = false,
                 scale = 1.0,
-                x = -50,
+                x = 150,
                 y = -30,
                 textFormat = 'numeric',
                 breakUpLargeNumbers = false,

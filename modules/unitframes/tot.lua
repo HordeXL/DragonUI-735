@@ -50,6 +50,38 @@ local function GetConfig()
 end
 
 -- ============================================================================
+-- ANCHOR FRAME POSITIONING (derived from unitframe.tot)
+-- ============================================================================
+
+local function UpdateAnchorFromTotConfig(config)
+    if not Module.totFrame or not Module.frame then
+        return
+    end
+    local targetFrame = _G.TargetFrame
+    if not targetFrame then
+        return
+    end
+    local tfWidth, tfHeight = targetFrame:GetSize()
+    local tfCenterX, tfCenterY = targetFrame:GetCenter()
+    if not tfCenterX or not tfCenterY then
+        return
+    end
+    -- TargetFrame BOTTOMLEFT absolute position
+    local tfBLX = tfCenterX - (tfWidth / 2)
+    local tfBLY = tfCenterY - (tfHeight / 2)
+    -- ToT BOTTOMLEFT = TargetFrame BOTTOMLEFT + relative offset
+    local totBLX = tfBLX + (config.x or 150)
+    local totBLY = tfBLY + (config.y or -30)
+    -- Anchor frame center = ToT frame center
+    local totWidth, totHeight = Module.frame:GetSize()
+    local centerX = totBLX + (totWidth / 2)
+    local centerY = totBLY + (totHeight / 2)
+    -- Position anchor frame
+    Module.totFrame:ClearAllPoints()
+    Module.totFrame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", centerX, centerY)
+end
+
+-- ============================================================================
 -- CREATE FRAME (called once)
 -- ============================================================================
 
@@ -170,7 +202,7 @@ local function UpdateToT()
     elseif targetFrame then
         -- 正常模式：相对于 TargetFrame 定位
         f:ClearAllPoints()
-        f:SetPoint(config.anchor or "BOTTOMLEFT", targetFrame, config.anchorParent or "BOTTOMLEFT", config.x or -50, config.y or -30)
+        f:SetPoint(config.anchor or "BOTTOMLEFT", targetFrame, config.anchorParent or "BOTTOMLEFT", config.x or 150, config.y or -30)
         f:SetScale(config.scale or 1.0)
     end
 
@@ -287,7 +319,6 @@ local function OnEvent(self, event, ...)
         if name == "DragonUI" and not Module.initialized then
             -- Create anchor frame for editor mode using addon.CreateUIFrame (enables dragging)
             Module.totFrame = addon.CreateUIFrame(128, 64, "ToT_Anchor")
-            Module.totFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 370, -80)
             Module.initialized = true
 
             -- Register with centralized system
@@ -323,6 +354,10 @@ local function OnEvent(self, event, ...)
                     if Module.frame and not UnitExists("targettarget") then
                         Module.frame:Hide()
                     end
+                end,
+                -- 进入编辑模式时，根据 unitframe.tot 的相对偏移定位锚点帧
+                onShow = function()
+                    UpdateAnchorFromTotConfig(GetConfig())
                 end,
                 -- 自定义 onHide 来处理位置同步
                 onHide = function()
@@ -407,35 +442,25 @@ local function RefreshFrame()
 end
 
 local function ResetFrame()
-    -- 重置 unitframe.tot 配置（正常模式相对于 TargetFrame 的位置）
-    addon:SetConfigValue("unitframe", "tot", "x", -50)
-    addon:SetConfigValue("unitframe", "tot", "y", -30)
-    addon:SetConfigValue("unitframe", "tot", "scale", 1.0)
-    addon:SetConfigValue("unitframe", "tot", "anchor", "BOTTOMLEFT")
-    addon:SetConfigValue("unitframe", "tot", "anchorParent", "BOTTOMLEFT")
-    
-    -- 重置 widgets.tot 配置（编辑模式的绝对位置）
-    if addon.db and addon.db.profile and addon.db.profile.widgets then
-        addon.db.profile.widgets.tot = {
-            anchor = "TOPLEFT",
-            posX = 370,
-            posY = -80,
-        }
-    end
-    
+    local ufDefaults = addon.defaults.profile.unitframe.tot
+
+    -- 重置 unitframe.tot 配置
+    addon:SetConfigValue("unitframe", "tot", "x", ufDefaults.x)
+    addon:SetConfigValue("unitframe", "tot", "y", ufDefaults.y)
+    addon:SetConfigValue("unitframe", "tot", "scale", ufDefaults.scale)
+    addon:SetConfigValue("unitframe", "tot", "anchor", ufDefaults.anchor)
+    addon:SetConfigValue("unitframe", "tot", "anchorParent", ufDefaults.anchorParent)
+
     -- 更新实际 ToT 框体的位置
     if Module.frame then
         Module.frame:ClearAllPoints()
-        Module.frame:SetPoint("BOTTOMLEFT", _G.TargetFrame, "BOTTOMLEFT", -50, -30)
-        Module.frame:SetScale(1.0)
+        Module.frame:SetPoint(ufDefaults.anchor, _G.TargetFrame, ufDefaults.anchorParent, ufDefaults.x, ufDefaults.y)
+        Module.frame:SetScale(ufDefaults.scale)
     end
-    
-    -- 更新编辑锚点帧的位置
-    if Module.totFrame then
-        Module.totFrame:ClearAllPoints()
-        Module.totFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 370, -80)
-    end
-    
+
+    -- 更新编辑锚点帧的位置（从 unitframe.tot 推算）
+    UpdateAnchorFromTotConfig(ufDefaults)
+
     print("[DragonUI] ToT 位置已重置为默认值")
 end
 
@@ -447,30 +472,6 @@ addon.TargetOfTarget = {
     anchor = function() return Module.totFrame end,
     ChangeToTFrame = RefreshFrame,
 }
-
-function Module:LoadDefaultSettings()
-    if not addon.db.profile.widgets then
-        addon.db.profile.widgets = {}
-    end
-    addon.db.profile.widgets.tot = {
-        anchor = "TOPLEFT",
-        posX = 370,
-        posY = -80,
-    }
-end
-
-function Module:UpdateWidgets()
-    if not addon.db or not addon.db.profile.widgets or not addon.db.profile.widgets.tot then
-        self:LoadDefaultSettings()
-        return
-    end
-    local widgetConfig = addon.db.profile.widgets.tot
-    if Module.totFrame then
-        Module.totFrame:ClearAllPoints()
-        Module.totFrame:SetPoint(widgetConfig.anchor or "TOPLEFT", UIParent, widgetConfig.anchor or "TOPLEFT",
-                                 widgetConfig.posX or 370, widgetConfig.posY or -80)
-    end
-end
 
 addon.unitframe = addon.unitframe or {}
 addon.unitframe.ChangeToT = RefreshFrame
