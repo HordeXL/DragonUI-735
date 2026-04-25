@@ -242,7 +242,17 @@ local function UpdateToT()
             if tex:GetTexture() ~= texPath then
                 tex:SetTexture(texPath)
             end
-            tex:SetVertexColor(1, 1, 1, 1)
+            if config2.classcolor and UnitIsPlayer("targettarget") then
+                local _, class = UnitClass("targettarget")
+                local color = RAID_CLASS_COLORS[class]
+                if color then
+                    tex:SetVertexColor(color.r, color.g, color.b, 1)
+                else
+                    tex:SetVertexColor(1, 1, 1, 1)
+                end
+            else
+                tex:SetVertexColor(1, 1, 1, 1)
+            end
         end
     end
 
