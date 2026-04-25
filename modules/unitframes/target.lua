@@ -640,13 +640,13 @@ local function InitializeFrame()
         if _G.TargetFrame_CheckClassification then
             hooksecurefunc("TargetFrame_CheckClassification", function()
                 --  SIN C_Timer - Usar frame con OnUpdate para delay mínimo
-                if UnitExists("target") then
+		if UnitExists("target") then
                     local delayFrame = CreateFrame("Frame")
                     local elapsed = 0
                     delayFrame:SetScript("OnUpdate", function(self, dt)
                         elapsed = elapsed + dt
                         if elapsed >= 0.1 then -- 100ms delay
-                            if UnitExists("target") then
+		if UnitExists("target") then
                                 ApplyWidgetPosition() -- Forzar re-anclaje
                                 UpdateClassification()
                             end
@@ -661,7 +661,7 @@ local function InitializeFrame()
         -- Hook para actualizaciones de modelo/forma
         if _G.TargetFrame_Update then
             hooksecurefunc("TargetFrame_Update", function()
-                if UnitExists("target") then
+		if UnitExists("target") then
                     ApplyWidgetPosition() -- Forzar re-anclaje
                     UpdateClassification()
                 end
@@ -869,19 +869,17 @@ local function OnEvent(self, event, ...)
                 TargetFrameManaBar, "TargetFrame")
             
         end
-        
-        if UnitExists("target") then
-            ReapplyElementPositions() -- Force position on login
-            UpdateNameBackground()
-            UpdateClassification()
-            UpdateThreat()
-            if Module.textSystem then
-                Module.textSystem.update()
-            end
+        -- 场景切换后始终重定位锚点帧（Blizzard 可能重置了位置）
+        ReapplyElementPositions()
+        UpdateNameBackground()
+        UpdateClassification()
+        UpdateThreat()
+        if Module.textSystem then
+            Module.textSystem.update()
         end
 
     elseif event == "PLAYER_TARGET_CHANGED" then
-        if UnitExists("target") then
+		if UnitExists("target") then
             -- FIX: Forcefully re-apply positions to override Blizzard's repositioning.
             ApplyWidgetPosition()
             ReapplyElementPositions()
@@ -936,7 +934,7 @@ local function OnEvent(self, event, ...)
         -- 战斗结束后重新定位 Blizzard TargetFrame（战斗中无法修改）
         if Module.configured then
             ApplyWidgetPosition()
-            if UnitExists("target") then
+		if UnitExists("target") then
                 ReapplyElementPositions()
             end
         end
@@ -970,7 +968,7 @@ if not Module.eventsFrame then
 end
 
 local function UpdateTargetHealthBarColorPublic()
-    if UnitExists("target") then
+		if UnitExists("target") then
         UpdateTargetHealthBarColor()
     end
 end
@@ -994,7 +992,7 @@ local function RefreshFrame()
     ApplyWidgetPosition()
 
     -- Only update dynamic content
-    if UnitExists("target") then
+		if UnitExists("target") then
         ReapplyElementPositions() -- Ensure correct positions on refresh
         UpdateNameBackground()
         UpdateClassification()
@@ -1094,7 +1092,7 @@ local function SetupTargetClassColorHooks()
         
         --  HOOK cuando cambia el target
         hooksecurefunc("TargetFrame_Update", function()
-            if UnitExists("target") then
+		if UnitExists("target") then
                 UpdateTargetHealthBarColor()
             end
         end)
