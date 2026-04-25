@@ -291,20 +291,55 @@ local function vehiclebutton_position()
     local bar = _G['OverrideActionBar']
     if not bar then return end
 
+    -- 获取底层背景框体（根据你提供的 Framestack，它是 pUiMainBarArt）
+    local baseFrame = _G['pUiMainBarArt']
+    if not baseFrame then baseFrame = bar end  -- 如果找不到，就 fallback 到 bar
+
     local button
     local maxButtons = VEHICLE_MAX_ACTIONBUTTONS or 6
-    local spacing = 8
-    for index=1, maxButtons do
+    
+    -- 【新增】检查是否有 OverrideActionBarHealthBar（载具血条）
+    local healthBar = _G['OverrideActionBarHealthBar']
+    local hasHealthBar = healthBar and healthBar:IsVisible()
+    
+    local spacing, startX, startY, buttonSizeFactor
+    
+    if hasHealthBar then
+        -- 有血条：维持原样（你提供的代码逻辑）
+        spacing = 10
+        startX = -60
+        startY = -5
+        buttonSizeFactor = 1.6
+        
+        -- 【修复判断】检查上下按钮背景框架是否存在且可见
+        local pitchButtonBG = _G['OverrideActionBarPitchFramePitchButtonBG']
+        if pitchButtonBG and pitchButtonBG:IsVisible() then
+            -- 只有真正显示时才右移
+            startX = startX + 40
+            --print("检测到 PitchButtonBG 显示，按钮右移100像素")
+        end
+    else
+        -- 无血条：单独设置（非载具模式，比如你截图中的情况）
+        spacing = 25          -- 按钮间距
+        startX = -23            -- 整体X偏移（相对于baseFrame左下角）
+        startY = -1           -- 垂直微调
+        buttonSizeFactor = 1.1 -- 稍微小一点（可选）
+        
+        --print("未检测到 OverrideActionBarHealthBar，使用非载具模式设置")
+    end
+
+    for index = 1, maxButtons do
         button = _G['OverrideActionBarButton'..index]
         if button then
             button:ClearAllPoints()
-            button:SetSize(config.additional.size * 1.6, config.additional.size * 1.6)
+            button:SetSize(config.additional.size * buttonSizeFactor, config.additional.size * buttonSizeFactor)
+            
             if index == 1 then
-                button:SetPoint('BOTTOMLEFT', bar, 'BOTTOMLEFT', 260, 18)
+                button:SetPoint('BOTTOMLEFT', baseFrame, 'BOTTOMLEFT', startX, startY)
             else
-                local previous = _G['OverrideActionBarButton'..(index-1)]
-                if previous then
-                    button:SetPoint('LEFT', previous, 'RIGHT', spacing, 0)
+                local prev = _G['OverrideActionBarButton'..(index-1)]
+                if prev then
+                    button:SetPoint('LEFT', prev, 'RIGHT', spacing, 0)
                 end
             end
         end
