@@ -177,19 +177,26 @@ local function UpdateToT()
         return
     end
 
+    local isInEditMode = addon.EditorMode and addon.EditorMode:IsActive()
+
     if not UnitExists("targettarget") then
-        if f:IsShown() then
-            f:Hide()
+        if isInEditMode then
+            -- 编辑模式：保留 showTest 设置的假数据，不更新
+            return
+        else
+            if f:IsShown() then
+                f:Hide()
+            end
+            return
         end
-        return
     end
 
     -- Position relative to TargetFrame
     local config = GetConfig()
     local targetFrame = _G.TargetFrame
-    
-    -- 检查是否在编辑模式
-    local isInEditMode = addon.EditorMode and addon.EditorMode:IsActive()
+
+    -- 检查是否在编辑模式（再次获取，确保一致性）
+    -- isInEditMode 已在上方定义
     
     if isInEditMode and Module.totFrame then
         -- 编辑模式：根据编辑锚点帧的位置来定位实际 ToT 框体
