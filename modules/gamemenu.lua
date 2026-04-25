@@ -1,7 +1,7 @@
 local addon = select(2,...);
 
 -- =================================================================
--- DRAGONUI GAME MENU BUTTON MODULE (WOW 3.3.5A)
+-- DRAGONUI GAME MENU BUTTON MODULE (WoW 7.3.5)
 -- =================================================================
 
 -- Variables locales para compatibilidad WoW 7.3.5
@@ -289,12 +289,38 @@ if originalGameMenuShow then
             local buttonHeight = dragonUIButton:GetHeight() or 16
             local spacing = 1
             local currentHeight = GameMenuFrame:GetHeight()
-            local baseHeight = 320  -- GameMenuFrame的默认高度(3.3.5)
+            
+            -- 【修复】动态获取GameMenuFrame的基础高度，而不是硬编码
+            -- WoW 7.3.5的GameMenuFrame默认高度会根据可见按钮数量变化
+            -- 通过计算所有可见按钮的总高度来获取准确的基础高度
+            local visibleButtons = GetVisibleGameMenuButtons()
+            local calculatedBaseHeight = 0
+            
+            if #visibleButtons > 0 then
+                -- 计算第一个按钮到最后一个按钮的距离
+                local firstButton = visibleButtons[1]
+                local lastButton = visibleButtons[#visibleButtons]
+                
+                if firstButton and lastButton then
+                    local firstTop = firstButton:GetTop()
+                    local lastBottom = lastButton:GetBottom()
+                    
+                    if firstTop and lastBottom then
+                        -- 按钮区域高度 + 顶部和底部边距
+                        calculatedBaseHeight = (firstTop - lastBottom) + 40  -- 40为上下边距估算值
+                    end
+                end
+            end
+            
+            -- 如果无法计算，使用合理的默认值
+            if calculatedBaseHeight == 0 then
+                calculatedBaseHeight = 320  -- WoW 7.3.5的合理默认值
+            end
             
             -- 检查是否已经调整过高度
-            if currentHeight < baseHeight + buttonHeight + 10 then
+            if currentHeight < calculatedBaseHeight + buttonHeight + 10 then
                 local extraHeight = buttonHeight + spacing + 10  -- 底部边距改为10像素
-                GameMenuFrame:SetHeight(baseHeight + extraHeight)
+                GameMenuFrame:SetHeight(calculatedBaseHeight + extraHeight)
             end
         end
     end
