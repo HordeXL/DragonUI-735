@@ -54,11 +54,11 @@ local TEXTURES = {
     RUNE_TEXTURE = 'Interface\\AddOns\\DragonUI\\Textures\\PlayerFrame\\ClassOverlayDeathKnightRunes',
     LFG_ICONS = "Interface\\AddOns\\DragonUI\\Textures\\PlayerFrame\\LFGRoleIcons",
     POWER_BARS = {
-        MANA = 'Interface\\Addons\\DragonUI\\Textures\\Unitframe\\UI-HUD-UnitFrame-Player-PortraitOn-Bar-Mana',
-        RAGE = 'Interface\\Addons\\DragonUI\\Textures\\Unitframe\\UI-HUD-UnitFrame-Player-PortraitOn-Bar-Rage',
-        FOCUS = 'Interface\\Addons\\DragonUI\\Textures\\Unitframe\\UI-HUD-UnitFrame-Player-PortraitOn-Bar-Focus',
-        ENERGY = 'Interface\\Addons\\DragonUI\\Textures\\Unitframe\\UI-HUD-UnitFrame-Player-PortraitOn-Bar-Energy',
-        RUNIC_POWER = 'Interface\\Addons\\DragonUI\\Textures\\Unitframe\\UI-HUD-UnitFrame-Player-PortraitOn-Bar-RunicPower'
+        MANA = 'Interface\\AddOns\\DragonUI\\Textures\\Unitframe\\UI-HUD-UnitFrame-Player-PortraitOn-Bar-Mana',
+        RAGE = 'Interface\\AddOns\\DragonUI\\Textures\\Unitframe\\UI-HUD-UnitFrame-Player-PortraitOn-Bar-Rage',
+        FOCUS = 'Interface\\AddOns\\DragonUI\\Textures\\Unitframe\\UI-HUD-UnitFrame-Player-PortraitOn-Bar-Focus',
+        ENERGY = 'Interface\\AddOns\\DragonUI\\Textures\\Unitframe\\UI-HUD-UnitFrame-Player-PortraitOn-Bar-Energy',
+        RUNIC_POWER = 'Interface\\AddOns\\DragonUI\\Textures\\Unitframe\\UI-HUD-UnitFrame-Player-PortraitOn-Bar-RunicPower'
     }
 }
 
@@ -1954,9 +1954,13 @@ hooksecurefunc("PlayerFrame_ToVehicleArt", function()
     UpdateDragonVisibilityForVehicle(true, isEliteMode)
 end)
 
--- Hook para actualizar texto de alternate mana bar cuando cambie el poder
+-- Hook para reaplicar textura y color DragonUI después de que Blizzard actualice la barra de poder
 hooksecurefunc("UnitFrameManaBar_Update", function(statusbar, unit)
     if unit == "player" then
+        -- Reaplicar textura y color DragonUI (Blizzard los sobrescribe)
+        UpdateManaBarColor(statusbar)
+        UpdatePowerBarTexture(statusbar)
+
         local _, playerClass = UnitClass("player")
         if playerClass == "DRUID" then
             local config = GetPlayerConfig()
