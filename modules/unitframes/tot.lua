@@ -21,6 +21,9 @@ local Module = {
     updateThrottle = 0,
 }
 
+-- Cache frequently accessed globals
+local TargetFrameToT = _G.TargetFrameToT
+
 local TEXTURES = {
     BACKGROUND = "Interface\\AddOns\\DragonUI\\Textures\\UI-HUD-UnitFrame-TargetofTarget-PortraitOn-BACKGROUND",
     BORDER = "Interface\\AddOns\\DragonUI\\Textures\\UI-HUD-UnitFrame-TargetofTarget-PortraitOn-BORDER",
@@ -47,6 +50,81 @@ local POWER_MAP = {
 
 local function GetConfig()
     return addon:GetConfigValue("unitframe", "tot") or {}
+end
+
+-- ============================================================================
+-- HIDE BLIZZARD NATIVE TOT FRAME
+-- ============================================================================
+
+local function HideBlizzardToT()
+    if TargetFrameToT then
+        -- Permanently hide all elements of the native ToT frame
+        TargetFrameToT:Hide()
+        TargetFrameToT:SetAlpha(0)
+        
+        -- Hide all child elements to prevent any rendering
+        local children = {TargetFrameToT:GetChildren()}
+        for _, child in ipairs(children) do
+            if child and child.Hide then
+                child:Hide()
+            end
+        end
+        
+        -- Hide specific known elements
+        if TargetFrameToTHealthBar then TargetFrameToTHealthBar:Hide() end
+        if TargetFrameToTManaBar then TargetFrameToTManaBar:Hide() end
+        if TargetFrameToTPortrait then TargetFrameToTPortrait:Hide() end
+        if TargetFrameToTNameBackground then TargetFrameToTNameBackground:Hide() end
+        if TargetFrameToTTextureFrameTexture then TargetFrameToTTextureFrameTexture:Hide() end
+        if TargetFrameToTBackground then TargetFrameToTBackground:Hide() end
+        
+        -- Unregister all events to prevent any updates
+        TargetFrameToT:UnregisterAllEvents()
+    end
+end
+
+-- Hook the Show method of TargetFrameToT to prevent it from ever showing
+local function SetupBlizzardToTHooks()
+    if TargetFrameToT and not TargetFrameToT.DragonUI_Hooked then
+        -- Hook the Show method to prevent showing
+        hooksecurefunc(TargetFrameToT, "Show", function()
+            -- Immediately hide again
+            TargetFrameToT:Hide()
+            TargetFrameToT:SetAlpha(0)
+        end)
+        
+        -- Also hook SetAlpha to prevent alpha changes
+        hooksecurefunc(TargetFrameToT, "SetAlpha", function(alpha)
+            if alpha > 0 then
+                TargetFrameToT:SetAlpha(0)
+            end
+        end)
+        
+        TargetFrameToT.DragonUI_Hooked = true
+    end
+end
+
+-- ============================================================================
+-- SYNC CVAR WITH CUSTOM FRAME VISIBILITY
+-- ============================================================================
+
+local function SyncToTVisibility()
+    -- Check the current CVar value for showing target of target
+    local showToT = GetCVarBool("showTargetOfTarget")
+    
+    if Module.frame then
+        if showToT then
+            -- Only show if there's a valid target of target
+            if UnitExists("targettarget") then
+                Module.frame:Show()
+            else
+                Module.frame:Hide()
+            end
+        else
+            -- Hide when CVar is disabled
+            Module.frame:Hide()
+        end
+    end
 end
 
 -- ============================================================================
@@ -89,6 +167,11 @@ local function CreateToTFrame()
     if Module.configured then
         return
     end
+
+    -- Setup hooks to prevent Blizzard ToT from showing (do this first)
+    SetupBlizzardToTHooks()
+    -- Hide Blizzard native ToT frame
+    HideBlizzardToT()
 
     local f = CreateFrame("Frame", "DragonUI_ToT", UIParent)
     f:SetSize(128, 64)
@@ -174,6 +257,15 @@ end
 local function UpdateToT()
     local f = Module.frame
     if not f then
+        return
+    end
+
+    -- Check CVar first - if disabled, hide the frame regardless of target existence
+    local showToT = GetCVarBool("showTargetOfTarget")
+    if not showToT then
+        if f:IsShown() then
+            f:Hide()
+        end
         return
     end
 
@@ -337,6 +429,9 @@ local function OnEvent(self, event, ...)
             -- Create anchor frame for editor mode using addon.CreateUIFrame (enables dragging)
             Module.totFrame = addon.CreateUIFrame(128, 64, "ToT_Anchor")
             Module.initialized = true
+            
+            -- Hide Blizzard native ToT frame immediately
+            HideBlizzardToT()
 
             -- Register with centralized system
             addon:RegisterEditableFrame({
@@ -427,11 +522,26 @@ local function OnEvent(self, event, ...)
 
     elseif event == "PLAYER_ENTERING_WORLD" then
         CreateToTFrame()
+        -- Hide Blizzard native ToT frame again to ensure it stays hidden
+        HideBlizzardToT()
+        -- Setup hooks to prevent Blizzard ToT from showing
+        SetupBlizzardToTHooks()
+        -- Sync visibility based on CVar
+        SyncToTVisibility()
         UpdateToT()
 
     elseif event == "PLAYER_TARGET_CHANGED" then
         -- Target changed, force immediate update
         Module.updateThrottle = 99 -- force update on next OnUpdate tick
+        -- Also sync visibility based on CVar
+        SyncToTVisibility()
+        
+    elseif event == "CVAR_UPDATE" then
+        local cvarName, value = ...
+        if cvarName == "SHOW_TARGET_OF_TARGET" or cvarName == "showTargetOfTarget" then
+            -- Sync custom frame visibility with CVar change
+            SyncToTVisibility()
+        end
     end
 end
 
@@ -441,6 +551,7 @@ if not Module.eventsFrame then
     Module.eventsFrame:RegisterEvent("ADDON_LOADED")
     Module.eventsFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     Module.eventsFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
+    Module.eventsFrame:RegisterEvent("CVAR_UPDATE")
     Module.eventsFrame:SetScript("OnEvent", OnEvent)
 
     -- OnUpdate for continuous monitoring
@@ -455,6 +566,13 @@ local function RefreshFrame()
     if not Module.configured then
         CreateToTFrame()
     end
+    
+    -- Ensure Blizzard ToT is still hidden
+    HideBlizzardToT()
+    SetupBlizzardToTHooks()
+    
+    -- Sync visibility based on CVar
+    SyncToTVisibility()
     UpdateToT()
 end
 
