@@ -144,7 +144,9 @@ local function InitializeMainbars()
         leftbar = nil,
         bottombarleft = nil,
         bottombarright = nil,
-        repexpbar = nil
+        repexpbar = nil,
+        reputationbar = nil,  -- 声望条独立容器
+        artifactbar = nil     -- 神器能量条独立容器
     }
 
     -- Set initial scale and properties
@@ -608,12 +610,35 @@ end
             mainMenuExpBar:SetPoint("CENTER", addon.ActionBarFrames.repexpbar, "CENTER", 0, 0)
         end
 
-        -- ⚠️ 关键：强制隐藏声望条，永远只显示经验条
+        -- ⭐ 修改：声望条现在连接到独立的容器框体，不再强制隐藏
         local repWatchBar = ReputationWatchBar
-        if repWatchBar then
-            repWatchBar:Hide()  -- 强制隐藏
-            repWatchBar:SetAlpha(0)  -- 设置透明度为0
-            addon:DebugInfo("ExpRepBar", "✅ 已强制隐藏声望条")
+        if repWatchBar and addon.ActionBarFrames.reputationbar then
+            repWatchBar:SetParent(addon.ActionBarFrames.reputationbar)
+            repWatchBar:ClearAllPoints()
+            repWatchBar:SetSize(526, 10)
+            repWatchBar:SetFrameLevel(2)
+            repWatchBar:SetScale(repScale)
+            repWatchBar:SetFrameStrata("MEDIUM")
+            repWatchBar:SetPoint("CENTER", addon.ActionBarFrames.reputationbar, "CENTER", 0, 0)
+            
+            -- 初始时隐藏声望条，只有在有监视的声望时才显示
+            repWatchBar:Hide()
+            addon:DebugInfo("ExpRepBar", "✅ 声望条已连接到独立容器框体")
+        end
+        
+        -- ⭐ 新增：神器能量条（职业大厅资源条）连接到独立容器
+        if MainMenuBarMaxLevelBar and addon.ActionBarFrames.artifactbar then
+            MainMenuBarMaxLevelBar:SetParent(addon.ActionBarFrames.artifactbar)
+            MainMenuBarMaxLevelBar:ClearAllPoints()
+            MainMenuBarMaxLevelBar:SetSize(526, 10)
+            MainMenuBarMaxLevelBar:SetFrameLevel(2)
+            MainMenuBarMaxLevelBar:SetFrameStrata("MEDIUM")
+            MainMenuBarMaxLevelBar:SetPoint("CENTER", addon.ActionBarFrames.artifactbar, "CENTER", 0, 0)
+            
+            -- 初始时隐藏，只在职业大厅区域显示
+            MainMenuBarMaxLevelBar:Hide()
+            MainMenuBarMaxLevelBar:SetAlpha(0)
+            addon:DebugInfo("ExpRepBar", "✅ 神器能量条已连接到独立容器框体")
         end
     end
 
@@ -646,9 +671,10 @@ end
         -- Get config values
         local config = addon.db and addon.db.profile.xprepbar
         local expScale = (config and config.expbar_scale) or 1.0
+        local repScale = (config and config.repbar_scale) or 1.0
         local hideAllBars = (config and config.hide_all_bars) or false
         
-        addon:DebugInfo("ExpRepBar", string.format("expScale:%.2f, hideAllBars:%s", expScale, tostring(hideAllBars)))
+        addon:DebugInfo("ExpRepBar", string.format("expScale:%.2f, repScale:%.2f, hideAllBars:%s", expScale, repScale, tostring(hideAllBars)))
         
         -- ⚠️ 如果选项为隐藏所有条，则隐藏经验条和声望条
         if hideAllBars then
@@ -664,13 +690,6 @@ end
                 addon:DebugInfo("ExpRepBar", "✅ 已隐藏声望条")
             end
             return
-        end
-        
-        -- ⚠️ 强制隐藏声望条，永远只显示经验条
-        if repWatchBar then
-            repWatchBar:Hide()
-            repWatchBar:SetAlpha(0)
-            addon:DebugInfo("ExpRepBar", "✅ 已强制隐藏声望条")
         end
         
         addon:DebugInfo("ExpRepBar", "---------- 单条模式：只显示经验条 ----------")
@@ -690,6 +709,32 @@ end
             addon:DebugInfo("ExpRepBar", string.format("经验条设置后 - 坐标:(%.1f,%.1f) 大小:%.1fx%.1f Offset:%.1f", expX or 0, expY or 0, expW, expH, singleOffset))
         end
         
+        -- ⭐ 新增：声望条独立定位逻辑
+        if repWatchBar and addon.ActionBarFrames.reputationbar then
+            -- 检查是否有监视的声望
+            local watchedFaction = GetWatchedFactionInfo()
+            if watchedFaction then
+                repWatchBar:ClearAllPoints()
+                repWatchBar:SetSize(526, 10)
+                repWatchBar:SetFrameLevel(2)
+                repWatchBar:SetScale(repScale)
+                repWatchBar:Show()
+                repWatchBar:SetAlpha(1)
+                
+                -- 声望条位置可以通过配置调整，默认在经验条下方
+                local repOffset = (config and config.repbar_offset) or -15
+                repWatchBar:SetPoint("CENTER", addon.ActionBarFrames.reputationbar, "CENTER", 0, repOffset)
+                
+                local repX, repY = repWatchBar:GetCenter()
+                local repW, repH = repWatchBar:GetSize()
+                addon:DebugInfo("ExpRepBar", string.format("声望条设置后 - 坐标:(%.1f,%.1f) 大小:%.1fx%.1f Offset:%.1f", repX or 0, repY or 0, repW, repH, repOffset))
+            else
+                -- 没有监视的声望时隐藏
+                repWatchBar:Hide()
+                addon:DebugInfo("ExpRepBar", "没有监视的声望，隐藏声望条")
+            end
+        end
+        
         addon:DebugInfo("ExpRepBar", "========== UpdateBarPositions完成 ==========")
     end
    -- Función específica para deshabilitar MainMenuBarMaxLevelBar
@@ -703,6 +748,8 @@ end
             MainMenuBarMaxLevelBar:SetFrameLevel(0)
             -- ⭐ 不禁用鼠标，允许暴雪的状态驱动正常工作
             -- MainMenuBarMaxLevelBar:EnableMouse(false)  -- 移除这行
+            
+            addon:DebugInfo("Mainbars", "✅ MainMenuBarMaxLevelBar已初始化（将由artifactbar容器管理）")
         end
     end
 
@@ -751,8 +798,14 @@ end
         addon.ActionBarFrames.bottombarleft = addon.CreateUIFrame(490, 40, "BottomBarLeft")
         addon.ActionBarFrames.bottombarright = addon.CreateUIFrame(490, 40, "BottomBarRight")
 
-        -- RepExp bar container (RetailUI pattern)
+        -- RepExp bar container (RetailUI pattern) - for experience bar
         addon.ActionBarFrames.repexpbar = addon.CreateUIFrame(addon.ActionBarFrames.mainbar:GetWidth(), 10, "RepExpBar")
+        
+        -- ⭐ 新增：声望条独立容器
+        addon.ActionBarFrames.reputationbar = addon.CreateUIFrame(addon.ActionBarFrames.mainbar:GetWidth(), 10, "ReputationBar")
+        
+        -- ⭐ 新增：神器能量条独立容器（职业大厅资源条）
+        addon.ActionBarFrames.artifactbar = addon.CreateUIFrame(addon.ActionBarFrames.mainbar:GetWidth(), 10, "ArtifactBar")
     end
 
     -- Position action bars to their container frames (initialization only - safe during addon load)
@@ -848,6 +901,16 @@ end
             frame = addon.ActionBarFrames.repexpbar,
             config = widgets.repexpbar,
             default = {"BOTTOM", 0, 35}
+        }, -- ⭐ 新增：声望条默认位置（经验条下方）
+        {
+            frame = addon.ActionBarFrames.reputationbar,
+            config = widgets.reputationbar,
+            default = {"BOTTOM", 0, 20}
+        }, -- ⭐ 新增：神器能量条默认位置（经验条上方）
+        {
+            frame = addon.ActionBarFrames.artifactbar,
+            config = widgets.artifactbar,
+            default = {"BOTTOM", 0, 50}
         }}
 
         for _, barData in ipairs(barConfigs) do
@@ -898,6 +961,18 @@ end
             frame = addon.ActionBarFrames.repexpbar,
             blizzardFrame = nil,
             configPath = {"widgets", "repexpbar"}
+        }, -- ⭐ 新增：声望条独立容器注册
+        {
+            name = "reputationbar",
+            frame = addon.ActionBarFrames.reputationbar,
+            blizzardFrame = ReputationWatchBar,
+            configPath = {"widgets", "reputationbar"}
+        }, -- ⭐ 新增：神器能量条独立容器注册
+        {
+            name = "artifactbar",
+            frame = addon.ActionBarFrames.artifactbar,
+            blizzardFrame = MainMenuBarMaxLevelBar,
+            configPath = {"widgets", "artifactbar"}
         }}
 
         for _, registration in ipairs(frameRegistrations) do
@@ -1086,6 +1161,39 @@ end
             UpdateBarPositions()
         end
     end
+    
+    -- ⭐ 新增：导出神器能量条刷新函数
+    addon.RefreshArtifactBarPosition = function()
+        if not InCombatLockdown() and addon.ActionBarFrames.artifactbar then
+            -- 检查玩家是否有神器能量
+            local hasArtifactPower = false
+            
+            if UnitPower and SPELL_POWER_ARTIFACT_POWER then
+                local artifactPower = UnitPower("player", SPELL_POWER_ARTIFACT_POWER)
+                if artifactPower and artifactPower > 0 then
+                    hasArtifactPower = true
+                end
+            end
+            
+            if not hasArtifactPower and UnitLevel then
+                local playerLevel = UnitLevel("player")
+                if playerLevel and playerLevel >= 110 then
+                    hasArtifactPower = true
+                end
+            end
+            
+            if hasArtifactPower and MainMenuBarMaxLevelBar then
+                MainMenuBarMaxLevelBar:Show()
+                MainMenuBarMaxLevelBar:SetAlpha(1)
+                MainMenuBarMaxLevelBar:EnableMouse(true)
+                addon:DebugInfo("Mainbars", "手动刷新：显示神器能量条（检测到神器能量）")
+            else
+                MainMenuBarMaxLevelBar:Hide()
+                MainMenuBarMaxLevelBar:SetAlpha(0)
+                addon:DebugInfo("Mainbars", "手动刷新：隐藏神器能量条（无神器能量）")
+            end
+        end
+    end
 
     -- Initialize immediately since we're already enabled
     ApplyMainbarsSystem()
@@ -1214,76 +1322,47 @@ end
             ApplyModernExpBarVisual()
         elseif event == "ORDER_HALL_LANDING_PAGE_CLOSED" then
             -- ⭐ 修复：当职业大厅界面关闭时，立即隐藏资源条
-            if MainMenuBarMaxLevelBar then
+            if MainMenuBarMaxLevelBar and addon.ActionBarFrames.artifactbar then
                 MainMenuBarMaxLevelBar:Hide()
                 MainMenuBarMaxLevelBar:SetAlpha(0)
                 MainMenuBarMaxLevelBar:EnableMouse(false)
-                addon:DebugInfo("Mainbars", "职业大厅界面已关闭，隐藏资源条")
+                addon:DebugInfo("Mainbars", "职业大厅界面已关闭，隐藏神器能量条")
             end
         elseif event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" then
-            -- ⭐ 修复：检查是否在职业大厅区域，控制MainMenuBarMaxLevelBar的可见性
+            -- ⭐ 简化逻辑：直接检查玩家是否有神器能量，不再依赖区域检测
             C_Timer.After(0.5, function()
-                if MainMenuBarMaxLevelBar then
-                    local inOrderHall = false
+                if MainMenuBarMaxLevelBar and addon.ActionBarFrames.artifactbar then
+                    -- 检查玩家是否有神器能量（7.3.5 使用 SPELL_POWER_ARTIFACT_POWER = 10）
+                    local hasArtifactPower = false
                     
-                    -- ⭐ 方法1：检查OrderHallLandingPage是否可见（最可靠的方法）
-                    if OrderHallLandingPage and OrderHallLandingPage:IsShown() then
-                        inOrderHall = true
-                    end
-                    
-                    -- ⭐ 方法2：检查是否在破碎群岛区域（通过子区域名称判断）
-                    if not inOrderHall then
-                        local _, _, _, zoneName = GetInstanceInfo()
-                        if zoneName then
-                            -- 职业大厅相关的区域名称
-                            local orderHallZones = {
-                                "达拉然", -- Dalaran
-                                "猎手大厅", -- Hunter Hall
-                                "冥狱深渊", -- Maw of Souls
-                                "黑锋要塞", -- Acherus
-                                "翡翠梦魇", -- Emerald Dreamway
-                                "职业大厅", -- Order Hall
-                            }
-                            for _, hallZone in ipairs(orderHallZones) do
-                                if string.find(zoneName, hallZone) then
-                                    inOrderHall = true
-                                    break
-                                end
-                            end
+                    -- 方法1：检查神器能量值
+                    if UnitPower and SPELL_POWER_ARTIFACT_POWER then
+                        local artifactPower = UnitPower("player", SPELL_POWER_ARTIFACT_POWER)
+                        if artifactPower and artifactPower > 0 then
+                            hasArtifactPower = true
                         end
                     end
                     
-                    -- ⭐ 方法3：尝试使用C_Map API（如果可用）
-                    if not inOrderHall and C_Map and C_Map.GetBestMapForUnit then
-                        local mapID = C_Map.GetBestMapForUnit("player")
-                        if mapID then
-                            -- 职业大厅地图ID列表（破碎群岛各职业大厅）
-                            local orderHallMaps = {
-                                624, -- 达拉然（破碎群岛）
-                                627, -- 猎手大厅
-                                628, -- 冥狱深渊
-                                629, -- 翡翠梦魇入口
-                                630, -- 黑锋要塞
-                                631, -- 职业大厅通用
-                            }
-                            
-                            if tableContains(orderHallMaps, mapID) then
-                                inOrderHall = true
-                            end
+                    -- 方法2：如果 API 不可用，检查玩家等级（满级后可能有神器）
+                    if not hasArtifactPower and UnitLevel then
+                        local playerLevel = UnitLevel("player")
+                        if playerLevel and playerLevel >= 110 then
+                            -- 满级玩家可能拥有神器，尝试显示
+                            hasArtifactPower = true
                         end
                     end
                     
-                    -- 如果在职业大厅，允许显示；否则强制隐藏
-                    if not inOrderHall then
+                    -- 根据是否有神器能量来决定显示/隐藏
+                    if hasArtifactPower then
+                        MainMenuBarMaxLevelBar:Show()
+                        MainMenuBarMaxLevelBar:SetAlpha(1)
+                        MainMenuBarMaxLevelBar:EnableMouse(true)
+                        addon:DebugInfo("Mainbars", "检测到神器能量，显示神器能量条")
+                    else
                         MainMenuBarMaxLevelBar:Hide()
                         MainMenuBarMaxLevelBar:SetAlpha(0)
                         MainMenuBarMaxLevelBar:EnableMouse(false)
-                        addon:DebugInfo("Mainbars", string.format("离开职业大厅区域，隐藏职业大厅资源条"))
-                    else
-                        -- 在职业大厅时，恢复正常的可见性控制
-                        MainMenuBarMaxLevelBar:EnableMouse(true)
-                        MainMenuBarMaxLevelBar:SetAlpha(1)
-                        addon:DebugInfo("Mainbars", string.format("在职业大厅区域，允许显示职业大厅资源条"))
+                        addon:DebugInfo("Mainbars", "未检测到神器能量，隐藏神器能量条")
                     end
                 end
             end)
