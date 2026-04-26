@@ -99,14 +99,14 @@ local defaults = {
             -- ⭐ 新增：声望条独立容器默认位置
             reputationbar = {
                 anchor = "BOTTOM",
-                posX = 1,
-                posY = -8
+                posX = 2,
+                posY = 220
             },
             -- ⭐ 新增：神器能量条独立容器默认位置
             artifactbar = {
                 anchor = "BOTTOM",
-                posX = 1,
-                posY = 22
+                posX = 0,
+                posY = 320
             },
             vehicleseat = {
                 anchor = "RIGHT",

@@ -1310,6 +1310,7 @@ end
     eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")  -- ⭐ 修复：监听区域变化以控制职业大厅资源条
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")  -- ⭐ 修复：监听玩家进入世界以控制职业大厅资源条
     eventFrame:RegisterEvent("ORDER_HALL_LANDING_PAGE_CLOSED")  -- ⭐ 修复：监听职业大厅界面关闭
+    eventFrame:RegisterEvent("UPDATE_FACTION")  -- ⭐ 新增：监听声望变化，防止位置重置
     eventFrame:SetScript("OnEvent", function(self, event)
         if event == "UPDATE_EXHAUSTION" then
             addon:DebugInfo("ExpRepBar", "========== 事件：UPDATE_EXHAUSTION ===========")
@@ -1320,6 +1321,19 @@ end
             addon:DebugInfo("ExpRepBar", "========== 事件：PLAYER_XP_UPDATE ===========")
             -- ⚠️ 关键：经验值变化时，暴雪可能重置StatusBarTexture，需要重新应用纹理
             ApplyModernExpBarVisual()
+        elseif event == "UPDATE_FACTION" then
+            -- ⭐ 修复：声望变化时，重新应用声望条到容器，防止暴雪重置位置
+            addon:DebugInfo("ExpRepBar", "========== 事件：UPDATE_FACTION (eventFrame) ===========")
+            if ReputationWatchBar and addon.ActionBarFrames.reputationbar then
+                -- 确保声望条仍然是容器的子元素
+                if ReputationWatchBar:GetParent() ~= addon.ActionBarFrames.reputationbar then
+                    addon:DebugInfo("ExpRepBar", "⚠️ 声望条父级被重置，重新连接到reputationbar容器")
+                    ConnectBarsToEditor()
+                end
+                -- 重新应用位置
+                UpdateBarPositions()
+                ForceReputationTextConfiguration()
+            end
         elseif event == "ORDER_HALL_LANDING_PAGE_CLOSED" then
             -- ⭐ 修复：当职业大厅界面关闭时，立即隐藏资源条
             if MainMenuBarMaxLevelBar and addon.ActionBarFrames.artifactbar then
@@ -1364,6 +1378,21 @@ end
                         MainMenuBarMaxLevelBar:EnableMouse(false)
                         addon:DebugInfo("Mainbars", "未检测到神器能量，隐藏神器能量条")
                     end
+                end
+                
+                -- ⭐ 关键修复：切换地图/进入世界后，重新应用声望条位置，防止暴雪重置
+                if ReputationWatchBar and addon.ActionBarFrames.reputationbar then
+                    addon:DebugInfo("ExpRepBar", "⭐ 切换地图/进入世界后，重新应用声望条位置")
+                    
+                    -- 确保声望条仍然是容器的子元素
+                    if ReputationWatchBar:GetParent() ~= addon.ActionBarFrames.reputationbar then
+                        addon:DebugInfo("ExpRepBar", "⚠️ 声望条父级被暴雪重置，重新连接到reputationbar容器")
+                        ConnectBarsToEditor()
+                    end
+                    
+                    -- 重新应用位置
+                    UpdateBarPositions()
+                    ForceReputationTextConfiguration()
                 end
             end)
         end
