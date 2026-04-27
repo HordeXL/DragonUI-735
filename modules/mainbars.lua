@@ -834,6 +834,71 @@ end
             end
         end
     end
+
+    -- SOLUCIÓN ANTI-PARPADEO: Hook SetPoint para神器能量条
+    local originalArtifactBarSetPoint = nil
+
+    local function ApplyArtifactBarPosition()
+        if InCombatLockdown() then
+            return
+        end
+        
+        if MainMenuBarMaxLevelBar and addon.ActionBarFrames.artifactbar then
+            -- 检查玩家是否有神器能量
+            local hasArtifactPower = false
+            
+            if UnitPower and SPELL_POWER_ARTIFACT_POWER then
+                local artifactPower = UnitPower("player", SPELL_POWER_ARTIFACT_POWER)
+                if artifactPower and artifactPower > 0 then
+                    hasArtifactPower = true
+                end
+            end
+            
+            if not hasArtifactPower and UnitLevel then
+                local playerLevel = UnitLevel("player")
+                if playerLevel and playerLevel >= 110 then
+                    hasArtifactPower = true
+                end
+            end
+            
+            if hasArtifactPower then
+                MainMenuBarMaxLevelBar:ClearAllPoints()
+                MainMenuBarMaxLevelBar:SetPoint("CENTER", addon.ActionBarFrames.artifactbar, "CENTER", 0, 0)
+                MainMenuBarMaxLevelBar:Show()
+                MainMenuBarMaxLevelBar:SetAlpha(1)
+                MainMenuBarMaxLevelBar:EnableMouse(true)
+            else
+                MainMenuBarMaxLevelBar:Hide()
+                MainMenuBarMaxLevelBar:SetAlpha(0)
+            end
+        end
+    end
+
+    -- Hook artifact bar SetPoint
+    if MainMenuBarMaxLevelBar then
+        originalArtifactBarSetPoint = MainMenuBarMaxLevelBar.SetPoint
+        MainMenuBarMaxLevelBar.SetPoint = function(self, point, relativeTo, relativePoint, x, y)
+            -- SEGURO: En combate, usar el comportamiento original
+            if InCombatLockdown() then
+                if originalArtifactBarSetPoint then
+                    originalArtifactBarSetPoint(self, point, relativeTo, relativePoint, x, y)
+                end
+                return
+            end
+
+            -- Si Blizzard intenta mover la barra a UIParent u otros frames no deseados,
+            -- forzar la posición de DragonUI
+            if relativeTo == UIParent or (type(relativeTo) == "string" and relativeTo ~= "DragonUI_ArtifactBar") then
+                -- Ignorar el intento de Blizzard y aplicar nuestra posición
+                ApplyArtifactBarPosition()
+            else
+                -- Permitir otros anclajes legítimos
+                if originalArtifactBarSetPoint then
+                    originalArtifactBarSetPoint(self, point, relativeTo, relativePoint, x, y)
+                end
+            end
+        end
+    end
    -- Función específica para deshabilitar MainMenuBarMaxLevelBar
     local function DisableMaxLevelBar()
         if MainMenuBarMaxLevelBar then
@@ -1491,6 +1556,20 @@ end
                     UpdateBarPositions()
                     ForceReputationTextConfiguration()
                 end
+                
+                -- ⭐ 新增：切换地图/进入世界后，重新应用神器能量条位置，防止暴雪重置
+                if MainMenuBarMaxLevelBar and addon.ActionBarFrames.artifactbar then
+                    addon:DebugInfo("Mainbars", "⭐ 切换地图/进入世界后，重新应用神器能量条位置")
+                    
+                    -- 确保神器能量条仍然是容器的子元素
+                    if MainMenuBarMaxLevelBar:GetParent() ~= addon.ActionBarFrames.artifactbar then
+                        addon:DebugInfo("Mainbars", "⚠️ 神器能量条父级被暴雪重置，重新连接到artifactbar容器")
+                        ConnectBarsToEditor()
+                    end
+                    
+                    -- 重新应用位置和显隐状态
+                    ApplyArtifactBarPosition()
+                end
             end)
         end
     end)
@@ -1607,6 +1686,12 @@ end
                             addon:DebugInfo("ExpRepBar", "✅ 战斗结束：重新定位声望条")
                         end
                     end
+                end
+                
+                -- ⭐ 新增：战斗结束后重新应用神器能量条位置（补偿性修正）
+                if MainMenuBarMaxLevelBar and addon.ActionBarFrames.artifactbar then
+                    ApplyArtifactBarPosition()
+                    addon:DebugInfo("Mainbars", "✅ 战斗结束：重新定位神器能量条")
                 end
             end
 
