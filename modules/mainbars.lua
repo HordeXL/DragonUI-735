@@ -737,6 +737,103 @@ end
         
         addon:DebugInfo("ExpRepBar", "========== UpdateBarPositions完成 ==========")
     end
+
+    -- SOLUCIÓN ANTI-PARPADEO: Hook SetPoint para interceptar movimientos no deseados de Blizzard
+    local originalExpBarSetPoint = nil
+    local originalRepBarSetPoint = nil
+
+    local function ApplyExpBarPosition()
+        if InCombatLockdown() then
+            return
+        end
+        
+        local config = addon.db and addon.db.profile.xprepbar
+        if not config then
+            return
+        end
+        
+        local expScale = config.expbar_scale or 1.0
+        local singleOffset = config.singlebar_offset or 0
+        
+        if MainMenuExpBar and addon.ActionBarFrames.repexpbar then
+            MainMenuExpBar:ClearAllPoints()
+            MainMenuExpBar:SetPoint("CENTER", addon.ActionBarFrames.repexpbar, "CENTER", 0, singleOffset)
+        end
+    end
+
+    local function ApplyRepBarPosition()
+        if InCombatLockdown() then
+            return
+        end
+        
+        local config = addon.db and addon.db.profile.xprepbar
+        if not config then
+            return
+        end
+        
+        local repScale = config.repbar_scale or 1.0
+        local repOffset = config.repbar_offset or -15
+        
+        if ReputationWatchBar and addon.ActionBarFrames.reputationbar then
+            local watchedFaction = GetWatchedFactionInfo()
+            if watchedFaction then
+                ReputationWatchBar:ClearAllPoints()
+                ReputationWatchBar:SetPoint("CENTER", addon.ActionBarFrames.reputationbar, "CENTER", 0, repOffset)
+            end
+        end
+    end
+
+    -- Hook experience bar SetPoint
+    if MainMenuExpBar then
+        originalExpBarSetPoint = MainMenuExpBar.SetPoint
+        MainMenuExpBar.SetPoint = function(self, point, relativeTo, relativePoint, x, y)
+            -- SEGURO: En combate, usar el comportamiento original
+            if InCombatLockdown() then
+                if originalExpBarSetPoint then
+                    originalExpBarSetPoint(self, point, relativeTo, relativePoint, x, y)
+                end
+                return
+            end
+
+            -- Si Blizzard intenta mover la barra a UIParent u otros frames no deseados,
+            -- forzar la posición de DragonUI
+            if relativeTo == UIParent or (type(relativeTo) == "string" and relativeTo ~= "DragonUI_RepExpBar") then
+                -- Ignorar el intento de Blizzard y aplicar nuestra posición
+                ApplyExpBarPosition()
+            else
+                -- Permitir otros anclajes legítimos
+                if originalExpBarSetPoint then
+                    originalExpBarSetPoint(self, point, relativeTo, relativePoint, x, y)
+                end
+            end
+        end
+    end
+
+    -- Hook reputation bar SetPoint
+    if ReputationWatchBar then
+        originalRepBarSetPoint = ReputationWatchBar.SetPoint
+        ReputationWatchBar.SetPoint = function(self, point, relativeTo, relativePoint, x, y)
+            -- SEGURO: En combate, usar el comportamiento original
+            if InCombatLockdown() then
+                if originalRepBarSetPoint then
+                    originalRepBarSetPoint(self, point, relativeTo, relativePoint, x, y)
+                end
+                return
+            end
+
+            -- Si Blizzard intenta mover la barra a UIParent u otros frames no deseados,
+            -- forzar la posición de DragonUI
+            if relativeTo == UIParent or (type(relativeTo) == "string" and relativeTo ~= "DragonUI_ReputationBar") then
+                -- Ignorar el intento de Blizzard y aplicar nuestra posición
+                ApplyRepBarPosition()
+            else
+                -- Permitir otros anclajes legítimos
+                if originalRepBarSetPoint then
+                    originalRepBarSetPoint(self, point, relativeTo, relativePoint, x, y)
+                end
+            end
+        end
+    end
    -- Función específica para deshabilitar MainMenuBarMaxLevelBar
     local function DisableMaxLevelBar()
         if MainMenuBarMaxLevelBar then
@@ -1487,6 +1584,30 @@ end
             if IsModuleEnabled() then
                 ApplyActionBarPositions()
                 PositionActionBarsToContainers()
+                
+                -- ⭐ 新增：战斗结束后重新应用经验条和声望条位置（补偿性修正）
+                if MainMenuExpBar and addon.ActionBarFrames.repexpbar then
+                    local config = addon.db and addon.db.profile.xprepbar
+                    if config then
+                        local singleOffset = config.singlebar_offset or 0
+                        MainMenuExpBar:ClearAllPoints()
+                        MainMenuExpBar:SetPoint("CENTER", addon.ActionBarFrames.repexpbar, "CENTER", 0, singleOffset)
+                        addon:DebugInfo("ExpRepBar", "✅ 战斗结束：重新定位经验条")
+                    end
+                end
+                
+                if ReputationWatchBar and addon.ActionBarFrames.reputationbar then
+                    local watchedFaction = GetWatchedFactionInfo()
+                    if watchedFaction then
+                        local config = addon.db and addon.db.profile.xprepbar
+                        if config then
+                            local repOffset = config.repbar_offset or -15
+                            ReputationWatchBar:ClearAllPoints()
+                            ReputationWatchBar:SetPoint("CENTER", addon.ActionBarFrames.reputationbar, "CENTER", 0, repOffset)
+                            addon:DebugInfo("ExpRepBar", "✅ 战斗结束：重新定位声望条")
+                        end
+                    end
+                end
             end
 
         elseif event == "UPDATE_FACTION" then

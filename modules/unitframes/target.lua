@@ -213,6 +213,31 @@ local function ReapplyElementPositions()
     end
 end
 
+-- SOLUCIÓN ANTI-PARPADEO: Hook SetPoint del TargetFrame para interceptar movimientos no deseados
+local originalTargetFrameSetPoint = TargetFrame.SetPoint
+TargetFrame.SetPoint = function(self, point, relativeTo, relativePoint, x, y)
+    -- SEGURO: Verificar combat lockdown antes de modificar
+    if InCombatLockdown() then
+        -- En combate, usar el SetPoint original sin modificaciones
+        originalTargetFrameSetPoint(self, point, relativeTo, relativePoint, x, y)
+        return
+    end
+
+    -- Si es un movimiento automático de Blizzard durante transiciones o cambios de escenario,
+    -- aplicar nuestra posición personalizada en su lugar
+    if point and relativeTo == UIParent and (point == "TOPLEFT" or point == "CENTER") then
+        -- SEGURO: Usar pcall para proteger contra errores
+        local success, err = pcall(ApplyWidgetPosition)
+        if not success then
+            -- Fallback al comportamiento original si hay error
+            originalTargetFrameSetPoint(self, point, relativeTo, relativePoint, x, y)
+        end
+    else
+        -- Llamar al SetPoint original para otros casos
+        originalTargetFrameSetPoint(self, point, relativeTo, relativePoint, x, y)
+    end
+end
+
 
 -- ============================================================================
 -- CLASS COLORS
