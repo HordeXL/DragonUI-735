@@ -1602,7 +1602,7 @@ addon.ShowRepBar = function()
     local offset = (config and config.singlebar_offset) or 0
     
     bar:ClearAllPoints()
-    bar:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 80 + offset)
+    bar:SetPoint("CENTER", addon.ActionBarFrames.repexpbar, "CENTER", 0, offset)
     bar:SetSize(526, 10)
     bar:SetFrameStrata("MEDIUM")
     bar:SetFrameLevel(2)
