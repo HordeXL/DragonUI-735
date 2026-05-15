@@ -563,7 +563,6 @@ end
             end
         end
 
-        -- ⚠️ 声望条已在disableblizzard.lua中被彻底禁用
     end
 
     -- Connect XP/Rep bars to the editor system
@@ -642,24 +641,61 @@ end
             return
         end
         
-        addon:DebugInfo("ExpRepBar", "---------- 单条模式：只显示经验条 ----------")
-        -- 永远使用单条模式：只显示经验条，居中
-        if mainMenuExpBar then
-            mainMenuExpBar:ClearAllPoints()
-            mainMenuExpBar:SetSize(526, 10)
-            mainMenuExpBar:SetFrameLevel(2)
-            mainMenuExpBar:SetScale(expScale)
-            mainMenuExpBar:Show()  -- 确保显示
-            mainMenuExpBar:SetAlpha(1)  -- 确保不透明
-            local singleOffset = (config and config.singlebar_offset) or 0
-            mainMenuExpBar:SetPoint("CENTER", addon.ActionBarFrames.repexpbar, "CENTER", 0, singleOffset)
-            
-            local expX, expY = mainMenuExpBar:GetCenter()
-            local expW, expH = mainMenuExpBar:GetSize()
-            addon:DebugInfo("ExpRepBar", string.format("经验条设置后 - 坐标:(%.1f,%.1f) 大小:%.1fx%.1f Offset:%.1f", expX or 0, expY or 0, expW, expH, singleOffset))
+        addon:DebugInfo("ExpRepBar", "---------- 单条模式：经验条/声望条切换 ----------")
+
+        -- 检查玩家是否满级
+        local playerLevel = UnitLevel("player")
+        local maxLevel = GetMaxPlayerLevel()
+        local isMaxLevel = playerLevel == maxLevel
+        local factionName = GetWatchedFactionInfo()
+        local hasWatchedFaction = factionName ~= nil
+
+        addon:DebugInfo("ExpRepBar", string.format("玩家等级 %d/%d, 满级=%s, 声望名=%s, 已监视=%s",
+            playerLevel or 0, maxLevel or 0, tostring(isMaxLevel),
+            tostring(factionName), tostring(hasWatchedFaction)))
+        
+        -- 确保自定义声望条已创建
+        if not addon.RepBar then
+            -- 已由模块级代码自动创建
         end
         
-        -- ⚠️ 声望条已在disableblizzard.lua中被彻底禁用
+        if isMaxLevel and hasWatchedFaction then
+            if mainMenuExpBar then
+                mainMenuExpBar:Hide()
+                mainMenuExpBar:SetAlpha(0)
+            end
+            addon.ShowRepBar()
+        elseif not isMaxLevel then
+            addon:DebugInfo("ExpRepBar", "未满级状态：显示经验条")
+            
+            if mainMenuExpBar then
+                mainMenuExpBar:ClearAllPoints()
+                mainMenuExpBar:SetSize(526, 10)
+                mainMenuExpBar:SetFrameLevel(2)
+                mainMenuExpBar:SetScale(expScale)
+                mainMenuExpBar:Show()
+                mainMenuExpBar:SetAlpha(1)
+                local singleOffset = (config and config.singlebar_offset) or 0
+                mainMenuExpBar:SetPoint("CENTER", addon.ActionBarFrames.repexpbar, "CENTER", 0, singleOffset)
+                
+                local expX, expY = mainMenuExpBar:GetCenter()
+                local expW, expH = mainMenuExpBar:GetSize()
+                addon:DebugInfo("ExpRepBar", string.format("经验条设置后 - 坐标:(%.1f,%.1f) 大小:%.1fx%.1f Offset:%.1f", expX or 0, expY or 0, expW, expH, singleOffset))
+            end
+            
+            -- 隐藏自定义声望条
+            addon.HideRepBar()
+        else
+            -- 满级但没有监视的声望：隐藏所有条
+            addon:DebugInfo("ExpRepBar", "满级状态 + 无监视声望：隐藏所有条")
+            
+            if mainMenuExpBar then
+                mainMenuExpBar:Hide()
+                mainMenuExpBar:SetAlpha(0)
+            end
+            
+            addon.HideRepBar()
+        end
         
         addon:DebugInfo("ExpRepBar", "========== UpdateBarPositions完成 ==========")
     end
@@ -1205,6 +1241,7 @@ end
         
         addon:DebugInfo("ExpRepBar", "========== ApplyModernExpBarVisual完成 ==========")
     end
+
     -- Single event handler for addon initialization
     local initFrame = CreateFrame("Frame")
     initFrame:RegisterEvent("ADDON_LOADED")
@@ -1237,13 +1274,11 @@ end
             -- ⚠️ 关键：经验值变化时，暴雪可能重置StatusBarTexture，需要重新应用纹理
             ApplyModernExpBarVisual()
         elseif event == "UPDATE_FACTION" then
-            -- ⚠️ 声望条已在disableblizzard.lua中被彻底禁用
-            addon:DebugInfo("ExpRepBar", "UPDATE_FACTION事件：声望条已禁用")
+            addon:DebugInfo("ExpRepBar", "UPDATE_FACTION事件：更新声望条")
+            UpdateBarPositions()
         elseif event == "ORDER_HALL_LANDING_PAGE_CLOSED" then
-            -- ⚠️ 神器能量条已在disableblizzard.lua中被彻底禁用
-            addon:DebugInfo("Mainbars", "ORDER_HALL_LANDING_PAGE_CLOSED事件：神器能量条已禁用")
+            addon:DebugInfo("Mainbars", "ORDER_HALL_LANDING_PAGE_CLOSED事件")
         elseif event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" then
-            -- ⚠️ 声望条和神器能量条已在disableblizzard.lua中被彻底禁用
         end
     end)
 
@@ -1265,7 +1300,7 @@ end
 
                 -- Apply modern exhaustion system and styling
                 ApplyModernExpBarVisual()
-
+                
                 -- Force reputation text configuration
                 ForceReputationTextConfiguration()
 
@@ -1276,7 +1311,6 @@ end
                 if MainMenuBarExpText then
                     MainMenuBarExpText:Hide()
                 end
-                -- ⚠️ 声望条已在disableblizzard.lua中被彻底禁用
                 
                 -- Ensure gryphons are on top after all setup is complete
                 if pUiMainBarArt then
@@ -1330,29 +1364,14 @@ end
             self:UnregisterEvent("PLAYER_LOGIN")
 
         elseif event == "PLAYER_REGEN_ENABLED" then
-            -- Reposition when combat ends - Execute immediately
             if IsModuleEnabled() then
                 ApplyActionBarPositions()
                 PositionActionBarsToContainers()
-                
-                -- ⭐ 战斗结束后重新应用经验条位置（补偿性修正）
-                if MainMenuExpBar and addon.ActionBarFrames.repexpbar then
-                    local config = addon.db and addon.db.profile.xprepbar
-                    if config then
-                        local singleOffset = config.singlebar_offset or 0
-                        MainMenuExpBar:ClearAllPoints()
-                        MainMenuExpBar:SetPoint("CENTER", addon.ActionBarFrames.repexpbar, "CENTER", 0, singleOffset)
-                        addon:DebugInfo("ExpRepBar", "✅ 战斗结束：重新定位经验条")
-                    end
-                end
-                
-                -- ⚠️ 声望条和神器能量条已在disableblizzard.lua中被彻底禁用
+                UpdateBarPositions()
             end
 
         elseif event == "UPDATE_FACTION" then
-            -- ⚠️ 声望条已在disableblizzard.lua中被彻底禁用
             if IsModuleEnabled() then
-                -- 经验条可能需要重新应用视觉效果
                 ApplyModernExpBarVisual()
                 UpdateBarPositions()
             end
@@ -1511,3 +1530,132 @@ end
 
 -- Alias for compatibility
 addon.RefreshMainbars = addon.RefreshMainbarsSystem
+
+-- ============================================================================
+-- 模块级自定义声望条（完全独立于 InitializeMainbars 作用域）
+-- ============================================================================
+
+-- 创建声望条
+if not addon.RepBar then
+    local bar = CreateFrame("StatusBar", "DragonUIRepBar", UIParent)
+    bar:SetSize(526, 10)
+    bar:SetFrameStrata("MEDIUM")
+    bar:SetFrameLevel(1)
+    bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+    bar:Hide()
+    
+    local border = bar:CreateTexture(nil, "ARTWORK")
+    border:SetTexture(addon._dir .. "uiexperiencebar")
+    border:SetSize(537, 18)
+    border:SetPoint("CENTER", bar, "CENTER", 0, 0)
+    border:SetTexCoord(1/2048, 572/2048, 1/64, 18/64)
+    
+    addon.RepBar = bar
+    addon.RepBarBorder = border
+    
+    local text = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    text:SetPoint("CENTER", bar, "CENTER", 0, 0)
+    text:SetJustifyH("CENTER")
+    text:Hide()
+    bar.text = text
+    
+    bar:SetScript("OnEnter", function(self)
+        local name, standing, barMin, barMax, barValue = GetWatchedFactionInfo()
+        if not name then return end
+        local standingLabel = _G["FACTION_STANDING_LABEL" .. standing] or ""
+        local progress = (barValue or 0) - (barMin or 0)
+        local range = (barMax or 0) - (barMin or 0)
+        self.text:SetText(string.format("%s  %s  %d/%d", name, standingLabel, progress, range))
+        self.text:Show()
+    end)
+    bar:SetScript("OnLeave", function(self)
+        self.text:Hide()
+    end)
+end
+
+-- 更新数据
+addon.UpdateRepBar = function()
+    local bar = addon.RepBar
+    if not bar then return end
+    
+    local name, standing, barMin, barMax, barValue = GetWatchedFactionInfo()
+    if not name then return end
+
+    local color = FACTION_BAR_COLORS[standing] or FACTION_BAR_COLORS[1]
+    bar:SetStatusBarColor(color.r, color.g, color.b, 0.85)
+    local progress = (barValue or 0) - (barMin or 0)
+    local range = (barMax or 0) - (barMin or 0)
+    if range < 1 then range = 1 end
+    bar:SetMinMaxValues(0, range)
+    bar:SetValue(progress)
+end
+
+-- 显示（直接定位到屏幕底部中央，即经验条的位置）
+addon.ShowRepBar = function()
+    local bar = addon.RepBar
+    if not bar then return end
+    
+    addon.UpdateRepBar()
+    
+    local config = addon.db and addon.db.profile.xprepbar
+    local scale = (config and config.expbar_scale) or 1.0
+    local offset = (config and config.singlebar_offset) or 0
+    
+    bar:ClearAllPoints()
+    bar:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 80 + offset)
+    bar:SetSize(526, 10)
+    bar:SetFrameStrata("MEDIUM")
+    bar:SetFrameLevel(2)
+    bar:SetScale(scale)
+    bar:SetAlpha(1)
+    bar:Show()
+end
+
+-- 隐藏
+addon.HideRepBar = function()
+    local bar = addon.RepBar
+    if bar then
+        bar:Hide()
+        bar:SetAlpha(0)
+    end
+end
+ 
+_G["TestBar"] = function()
+     local bar = addon.RepBar
+    if not bar then print("RepBar不存在") return end
+    print(string.format("大小: %.0fx%.0f", bar:GetSize()))
+    print(string.format("父框架: %s", bar:GetParent():GetName() or "无"))
+    addon.ShowRepBar()
+
+    local name, standing, barMin, barMax, barValue = GetWatchedFactionInfo()
+    print(string.format("--- API原始值 ---"))
+    print(string.format("name=%s", tostring(name)))
+    print(string.format("standing=%d", standing or 0))
+    print(string.format("barMin=%d", barMin or 0))
+    print(string.format("barMax=%d", barMax or 0))
+    print(string.format("barValue=%d", barValue or 0))
+
+    local progress = (barValue or 0) - (barMin or 0)
+    local range = (barMax or 0) - (barMin or 0)
+    print(string.format("--- 计算值 ---"))
+    print(string.format("progress(barValue-barMin)=%d", progress))
+    print(string.format("range(barMax-barMin)=%d", range))
+
+    local minVal, maxVal = bar:GetMinMaxValues()
+    local curVal = bar:GetValue()
+    print(string.format("--- StatusBar实际设置 ---"))
+    print(string.format("SetMinMaxValues=(%d,%d)", minVal or 0, maxVal or 0))
+    print(string.format("SetValue=%d", curVal or 0))
+
+    local x, y = bar:GetCenter()
+    print(string.format("位置: (%.0f,%.0f) IsShown:%s Alpha:%.2f", x or 0, y or 0, bar:IsShown() and "是" or "否", bar:GetAlpha()))
+end
+
+_G["TestRepAPI"] = function()
+    local name, standing, barMin, barMax, barValue = GetWatchedFactionInfo()
+    if not name then print("没有监视声望") return end
+    local standingLabel = _G["FACTION_STANDING_LABEL" .. standing] or ""
+    print(string.format("声望: %s | 等级: %s(%d)", name, standingLabel, standing))
+    print(string.format("barMin=%d  barMax=%d  barValue=%d", barMin or 0, barMax or 0, barValue or 0))
+    print(string.format("当前等级进度: %d / %d", (barValue or 0) - (barMin or 0), (barMax or 0) - (barMin or 0)))
+end
