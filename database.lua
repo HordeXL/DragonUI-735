@@ -175,8 +175,8 @@ local defaults = {
             repbar_abovexp_offset = 0,  -- 声望条位于经验条上方的偏移（设为0，由代码自动计算为5.5px）
             repbar_offset = 0,       -- 声望条单独显示时的偏移
             -- ⚠️ 重要：不再使用缩放，统一使用526x10的尺寸
-            expbar_scale = 1.0,      -- 经验条缩放（默认1.0，不缩放）
-            repbar_scale = 1.0,      -- 声望条缩放（默认1.0，不缩放）
+            expbar_scale = 0.9,      -- 经验条缩放（默认0.9）
+            repbar_scale = 0.9,      -- 声望条缩放（默认0.9）
             hide_all_bars = false    -- 隐藏所有经验和声望条（默认false，显示）
         },
 

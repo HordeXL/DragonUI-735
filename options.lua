@@ -1057,9 +1057,9 @@ function addon:CreateOptionsTable()
                             addon.db.profile.xprepbar.repbar_abovexp_offset = 0
                             addon.db.profile.xprepbar.repbar_offset = 0
                             
-                            -- ⚠️ 重要：将缩放重置为1.0（不使用缩放）
-                            addon.db.profile.xprepbar.expbar_scale = 1.0
-                            addon.db.profile.xprepbar.repbar_scale = 1.0
+                            -- ⚠️ 重要：将缩放重置为0.9
+                            addon.db.profile.xprepbar.expbar_scale = 0.9
+                            addon.db.profile.xprepbar.repbar_scale = 0.9
                             
                             -- 应用更改
                             if addon.RefreshXpRepBarPosition then

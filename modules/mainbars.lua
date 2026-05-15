@@ -573,8 +573,8 @@ end
         
         -- Get config values for initial setup
         local config = addon.db and addon.db.profile.xprepbar
-        local expScale = (config and config.expbar_scale) or 1.0
-        local repScale = (config and config.repbar_scale) or 1.0
+        local expScale = (config and config.expbar_scale) or 0.9
+        local repScale = (config and config.repbar_scale) or 0.9
 
         local mainMenuExpBar = MainMenuExpBar
         if mainMenuExpBar then
@@ -625,7 +625,7 @@ end
         
         -- Get config values
         local config = addon.db and addon.db.profile.xprepbar
-        local expScale = (config and config.expbar_scale) or 1.0
+        local expScale = (config and config.expbar_scale) or 0.9
         local hideAllBars = (config and config.hide_all_bars) or false
         
         addon:DebugInfo("ExpRepBar", string.format("expScale:%.2f, hideAllBars:%s", expScale, tostring(hideAllBars)))
@@ -714,7 +714,7 @@ end
             return
         end
         
-        local expScale = config.expbar_scale or 1.0
+        local expScale = config.expbar_scale or 0.9
         local singleOffset = config.singlebar_offset or 0
         
         if MainMenuExpBar and addon.ActionBarFrames.repexpbar then
@@ -1598,7 +1598,7 @@ addon.ShowRepBar = function()
     addon.UpdateRepBar()
     
     local config = addon.db and addon.db.profile.xprepbar
-    local scale = (config and config.expbar_scale) or 1.0
+    local scale = (config and config.expbar_scale) or 0.9
     local offset = (config and config.singlebar_offset) or 0
     
     bar:ClearAllPoints()
