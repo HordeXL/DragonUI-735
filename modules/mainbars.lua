@@ -1565,11 +1565,23 @@ if not addon.RepBar then
         local standingLabel = _G["FACTION_STANDING_LABEL" .. standing] or ""
         local progress = (barValue or 0) - (barMin or 0)
         local range = (barMax or 0) - (barMin or 0)
+        
         self.text:SetText(string.format("%s  %s  %d/%d", name, standingLabel, progress, range))
         self.text:Show()
+        
+        GameTooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT", 0, 8)
+        GameTooltip:AddLine(name, 1, 1, 1)
+        GameTooltip:AddLine(standingLabel, 1, 0.82, 0)
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddDoubleLine("当前进度", string.format("%d / %d", progress, range), 1, 1, 1, 1, 1, 1)
+        if range > 0 then
+            GameTooltip:AddDoubleLine("完成百分比", string.format("%.1f%%", progress / range * 100), 1, 1, 1, 1, 1, 1)
+        end
+        GameTooltip:Show()
     end)
     bar:SetScript("OnLeave", function(self)
         self.text:Hide()
+        GameTooltip:Hide()
     end)
 end
 
