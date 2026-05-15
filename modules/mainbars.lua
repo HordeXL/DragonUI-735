@@ -563,29 +563,7 @@ end
             end
         end
 
-        -- Setup reputation bar with NEW style sizes
-        if ReputationWatchBar then
-            ReputationWatchBar:SetFrameLevel(1) -- Lower level for editor overlay visibility
-            -- Set NEW style size immediately
-            ReputationWatchBar:SetSize(537, 10)
-
-            if ReputationWatchStatusBar then
-                -- Set NEW style size for status bar too
-                ReputationWatchStatusBar:SetSize(537, 10)
-
-                -- CRITICAL: Configure reputation text properly from the start
-                if ReputationWatchStatusBarText then
-                    -- Ensure correct parent
-                    ReputationWatchStatusBarText:SetParent(ReputationWatchStatusBar)
-                    -- Set reasonable layering - not excessively high
-                    ReputationWatchStatusBarText:SetDrawLayer("OVERLAY", 2)
-                    -- Position for NEW style (offset +1)
-                    ReputationWatchStatusBarText:SetClearPoint('CENTER', ReputationWatchStatusBar, 'CENTER', 0, 1)
-                    -- IMPORTANT: Hide by default (only show on hover)
-                    ReputationWatchStatusBarText:Hide()
-                end
-            end
-        end
+        -- ⚠️ 声望条已在disableblizzard.lua中被彻底禁用
     end
 
     -- Connect XP/Rep bars to the editor system
@@ -610,35 +588,14 @@ end
             mainMenuExpBar:SetPoint("CENTER", addon.ActionBarFrames.repexpbar, "CENTER", 0, 0)
         end
 
-        -- ⭐ 修改：声望条现在连接到独立的容器框体，不再强制隐藏
-        local repWatchBar = ReputationWatchBar
-        if repWatchBar and addon.ActionBarFrames.reputationbar then
-            repWatchBar:SetParent(addon.ActionBarFrames.reputationbar)
-            repWatchBar:ClearAllPoints()
-            repWatchBar:SetSize(526, 10)
-            repWatchBar:SetFrameLevel(2)
-            repWatchBar:SetScale(repScale)
-            repWatchBar:SetFrameStrata("MEDIUM")
-            repWatchBar:SetPoint("CENTER", addon.ActionBarFrames.reputationbar, "CENTER", 0, 0)
-            
-            -- 初始时隐藏声望条，只有在有监视的声望时才显示
-            repWatchBar:Hide()
-            addon:DebugInfo("ExpRepBar", "✅ 声望条已连接到独立容器框体")
+        -- ⚠️ 声望条和神器能量条已在disableblizzard.lua中被彻底禁用
+        -- 这里不再尝试连接它们，让它们保持被杀死状态
+        if addon.ActionBarFrames.reputationbar then
+            addon:DebugInfo("ExpRepBar", "✅ 声望条容器已创建（原生条已禁用）")
         end
         
-        -- ⭐ 新增：神器能量条（职业大厅资源条）连接到独立容器
-        if MainMenuBarMaxLevelBar and addon.ActionBarFrames.artifactbar then
-            MainMenuBarMaxLevelBar:SetParent(addon.ActionBarFrames.artifactbar)
-            MainMenuBarMaxLevelBar:ClearAllPoints()
-            MainMenuBarMaxLevelBar:SetSize(526, 10)
-            MainMenuBarMaxLevelBar:SetFrameLevel(2)
-            MainMenuBarMaxLevelBar:SetFrameStrata("MEDIUM")
-            MainMenuBarMaxLevelBar:SetPoint("CENTER", addon.ActionBarFrames.artifactbar, "CENTER", 0, 0)
-            
-            -- 初始时隐藏，只在职业大厅区域显示
-            MainMenuBarMaxLevelBar:Hide()
-            MainMenuBarMaxLevelBar:SetAlpha(0)
-            addon:DebugInfo("ExpRepBar", "✅ 神器能量条已连接到独立容器框体")
+        if addon.ActionBarFrames.artifactbar then
+            addon:DebugInfo("ExpRepBar", "✅ 神器能量条容器已创建（原生条已禁用）")
         end
     end
 
@@ -666,28 +623,21 @@ end
         end
 
         local mainMenuExpBar = MainMenuExpBar
-        local repWatchBar = ReputationWatchBar
         
         -- Get config values
         local config = addon.db and addon.db.profile.xprepbar
         local expScale = (config and config.expbar_scale) or 1.0
-        local repScale = (config and config.repbar_scale) or 1.0
         local hideAllBars = (config and config.hide_all_bars) or false
         
-        addon:DebugInfo("ExpRepBar", string.format("expScale:%.2f, repScale:%.2f, hideAllBars:%s", expScale, repScale, tostring(hideAllBars)))
+        addon:DebugInfo("ExpRepBar", string.format("expScale:%.2f, hideAllBars:%s", expScale, tostring(hideAllBars)))
         
-        -- ⚠️ 如果选项为隐藏所有条，则隐藏经验条和声望条
+        -- ⚠️ 如果选项为隐藏所有条，则隐藏经验条
         if hideAllBars then
             addon:DebugInfo("ExpRepBar", "⚠️ 隐藏所有条模式已启用")
             if mainMenuExpBar then
                 mainMenuExpBar:Hide()
                 mainMenuExpBar:SetAlpha(0)
                 addon:DebugInfo("ExpRepBar", "✅ 已隐藏经验条")
-            end
-            if repWatchBar then
-                repWatchBar:Hide()
-                repWatchBar:SetAlpha(0)
-                addon:DebugInfo("ExpRepBar", "✅ 已隐藏声望条")
             end
             return
         end
@@ -709,31 +659,7 @@ end
             addon:DebugInfo("ExpRepBar", string.format("经验条设置后 - 坐标:(%.1f,%.1f) 大小:%.1fx%.1f Offset:%.1f", expX or 0, expY or 0, expW, expH, singleOffset))
         end
         
-        -- ⭐ 新增：声望条独立定位逻辑
-        if repWatchBar and addon.ActionBarFrames.reputationbar then
-            -- 检查是否有监视的声望
-            local watchedFaction = GetWatchedFactionInfo()
-            if watchedFaction then
-                repWatchBar:ClearAllPoints()
-                repWatchBar:SetSize(526, 10)
-                repWatchBar:SetFrameLevel(2)
-                repWatchBar:SetScale(repScale)
-                repWatchBar:Show()
-                repWatchBar:SetAlpha(1)
-                
-                -- 声望条位置可以通过配置调整，默认在经验条下方
-                local repOffset = (config and config.repbar_offset) or -15
-                repWatchBar:SetPoint("CENTER", addon.ActionBarFrames.reputationbar, "CENTER", 0, repOffset)
-                
-                local repX, repY = repWatchBar:GetCenter()
-                local repW, repH = repWatchBar:GetSize()
-                addon:DebugInfo("ExpRepBar", string.format("声望条设置后 - 坐标:(%.1f,%.1f) 大小:%.1fx%.1f Offset:%.1f", repX or 0, repY or 0, repW, repH, repOffset))
-            else
-                -- 没有监视的声望时隐藏
-                repWatchBar:Hide()
-                addon:DebugInfo("ExpRepBar", "没有监视的声望，隐藏声望条")
-            end
-        end
+        -- ⚠️ 声望条已在disableblizzard.lua中被彻底禁用
         
         addon:DebugInfo("ExpRepBar", "========== UpdateBarPositions完成 ==========")
     end
@@ -771,16 +697,7 @@ end
             return
         end
         
-        local repScale = config.repbar_scale or 1.0
-        local repOffset = config.repbar_offset or -15
-        
-        if ReputationWatchBar and addon.ActionBarFrames.reputationbar then
-            local watchedFaction = GetWatchedFactionInfo()
-            if watchedFaction then
-                ReputationWatchBar:ClearAllPoints()
-                ReputationWatchBar:SetPoint("CENTER", addon.ActionBarFrames.reputationbar, "CENTER", 0, repOffset)
-            end
-        end
+        -- ⚠️ 声望条已在disableblizzard.lua中被彻底禁用
     end
 
     -- Hook experience bar SetPoint
@@ -809,137 +726,35 @@ end
         end
     end
 
-    -- Hook reputation bar SetPoint
-    if ReputationWatchBar then
-        originalRepBarSetPoint = ReputationWatchBar.SetPoint
-        ReputationWatchBar.SetPoint = function(self, point, relativeTo, relativePoint, x, y)
-            -- SEGURO: En combate, usar el comportamiento original
-            if InCombatLockdown() then
-                if originalRepBarSetPoint then
-                    originalRepBarSetPoint(self, point, relativeTo, relativePoint, x, y)
-                end
-                return
-            end
+    -- ⚠️ 声望条和神器能量条已在disableblizzard.lua中被彻底禁用
+    -- 相关的SetPoint挂钩已移除
 
-            -- Si Blizzard intenta mover la barra a UIParent u otros frames no deseados,
-            -- forzar la posición de DragonUI
-            if relativeTo == UIParent or (type(relativeTo) == "string" and relativeTo ~= "DragonUI_ReputationBar") then
-                -- Ignorar el intento de Blizzard y aplicar nuestra posición
-                ApplyRepBarPosition()
-            else
-                -- Permitir otros anclajes legítimos
-                if originalRepBarSetPoint then
-                    originalRepBarSetPoint(self, point, relativeTo, relativePoint, x, y)
-                end
-            end
-        end
-    end
-
-    -- SOLUCIÓN ANTI-PARPADEO: Hook SetPoint para神器能量条
-    local originalArtifactBarSetPoint = nil
-
-    local function ApplyArtifactBarPosition()
-        if InCombatLockdown() then
-            return
-        end
-        
-        if MainMenuBarMaxLevelBar and addon.ActionBarFrames.artifactbar then
-            -- 检查玩家是否有神器能量
-            local hasArtifactPower = false
-            
-            if UnitPower and SPELL_POWER_ARTIFACT_POWER then
-                local artifactPower = UnitPower("player", SPELL_POWER_ARTIFACT_POWER)
-                if artifactPower and artifactPower > 0 then
-                    hasArtifactPower = true
-                end
-            end
-            
-            if not hasArtifactPower and UnitLevel then
-                local playerLevel = UnitLevel("player")
-                if playerLevel and playerLevel >= 110 then
-                    hasArtifactPower = true
-                end
-            end
-            
-            if hasArtifactPower then
-                MainMenuBarMaxLevelBar:ClearAllPoints()
-                MainMenuBarMaxLevelBar:SetPoint("CENTER", addon.ActionBarFrames.artifactbar, "CENTER", 0, 0)
-                MainMenuBarMaxLevelBar:Show()
-                MainMenuBarMaxLevelBar:SetAlpha(1)
-                MainMenuBarMaxLevelBar:EnableMouse(true)
-            else
-                MainMenuBarMaxLevelBar:Hide()
-                MainMenuBarMaxLevelBar:SetAlpha(0)
-            end
-        end
-    end
-
-    -- Hook artifact bar SetPoint
-    if MainMenuBarMaxLevelBar then
-        originalArtifactBarSetPoint = MainMenuBarMaxLevelBar.SetPoint
-        MainMenuBarMaxLevelBar.SetPoint = function(self, point, relativeTo, relativePoint, x, y)
-            -- SEGURO: En combate, usar el comportamiento original
-            if InCombatLockdown() then
-                if originalArtifactBarSetPoint then
-                    originalArtifactBarSetPoint(self, point, relativeTo, relativePoint, x, y)
-                end
-                return
-            end
-
-            -- Si Blizzard intenta mover la barra a UIParent u otros frames no deseados,
-            -- forzar la posición de DragonUI
-            if relativeTo == UIParent or (type(relativeTo) == "string" and relativeTo ~= "DragonUI_ArtifactBar") then
-                -- Ignorar el intento de Blizzard y aplicar nuestra posición
-                ApplyArtifactBarPosition()
-            else
-                -- Permitir otros anclajes legítimos
-                if originalArtifactBarSetPoint then
-                    originalArtifactBarSetPoint(self, point, relativeTo, relativePoint, x, y)
-                end
-            end
-        end
-    end
-   -- Función específica para deshabilitar MainMenuBarMaxLevelBar
-    local function DisableMaxLevelBar()
-        if MainMenuBarMaxLevelBar then
-            -- ⭐ 不要完全禁用，而是让它在非职业大厅区域保持隐藏
-            -- 只设置初始状态为隐藏，但允许后续通过事件控制
-            MainMenuBarMaxLevelBar:Hide()
-            MainMenuBarMaxLevelBar:SetAlpha(0)
-            -- 降低FrameLevel以避免干扰其他UI元素
-            MainMenuBarMaxLevelBar:SetFrameLevel(0)
-            -- ⭐ 不禁用鼠标，允许暴雪的状态驱动正常工作
-            -- MainMenuBarMaxLevelBar:EnableMouse(false)  -- 移除这行
-            
-            addon:DebugInfo("Mainbars", "✅ MainMenuBarMaxLevelBar已初始化（将由artifactbar容器管理）")
-        end
-    end
-
+    -- ⚠️ 注意：此函数只处理暴雪UI的装饰纹理
+    -- 框架的禁用（事件、脚本等）由 disableblizzard 模块负责
     local function RemoveBlizzardFrames()
-        -- Deshabilitar MainMenuBarMaxLevelBar inmediatamente
-        DisableMaxLevelBar()
+        -- ⚠️ 神器能量条已在disableblizzard.lua中被彻底禁用
         
-        local blizzFrames = {MainMenuBarPerformanceBar, MainMenuBarTexture0, MainMenuBarTexture1, MainMenuBarTexture2,
-                             MainMenuBarTexture3, MainMenuBarMaxLevelBar, ReputationXPBarTexture1,
-                             ReputationXPBarTexture2, ReputationXPBarTexture3, ReputationWatchBarTexture1,
-                             ReputationWatchBarTexture2, ReputationWatchBarTexture3, MainMenuXPBarTexture1,
-                             MainMenuXPBarTexture2, MainMenuXPBarTexture3, SlidingActionBarTexture0,
-                             SlidingActionBarTexture1, BonusActionBarTexture0, BonusActionBarTexture1,
-                             ShapeshiftBarLeft, ShapeshiftBarMiddle, ShapeshiftBarRight, PossessBackground1,
-                             PossessBackground2}
+        -- 隐藏装饰纹理（这些不是框架，只是纹理对象）
+        local blizzTextures = {
+            MainMenuBarPerformanceBar,
+            MainMenuBarTexture0, MainMenuBarTexture1, MainMenuBarTexture2, MainMenuBarTexture3,
+            ReputationXPBarTexture1, ReputationXPBarTexture2, ReputationXPBarTexture3,
+            ReputationWatchBarTexture1, ReputationWatchBarTexture2, ReputationWatchBarTexture3,
+            MainMenuXPBarTexture1, MainMenuXPBarTexture2, MainMenuXPBarTexture3,
+            SlidingActionBarTexture0, SlidingActionBarTexture1,
+            BonusActionBarTexture0, BonusActionBarTexture1,
+            ShapeshiftBarLeft, ShapeshiftBarMiddle, ShapeshiftBarRight,
+            PossessBackground1, PossessBackground2
+        }
 
-        for _, frame in pairs(blizzFrames) do
-            if frame then
-                frame:SetAlpha(0)
-                if frame == MainMenuBarMaxLevelBar then
-                    -- ⭐ 对于MainMenuBarMaxLevelBar，只隐藏但不禁用鼠标
-                    -- 允许暴雪的状态驱动系统控制其可见性
-                    frame:Hide()
-                    frame:SetFrameLevel(0)
-                    -- 不禁用鼠标：frame:EnableMouse(false)  -- 已移除
-                end
+        for _, texture in pairs(blizzTextures) do
+            if texture then
+                texture:SetAlpha(0)
+                texture:Hide()
             end
         end
+        
+        addon:DebugInfo("Mainbars", "✅ 已隐藏暴雪装饰纹理（框架禁用由disableblizzard模块负责）")
     end
 
     function MainMenuBarMixin:initialize()
@@ -1123,17 +938,17 @@ end
             frame = addon.ActionBarFrames.repexpbar,
             blizzardFrame = nil,
             configPath = {"widgets", "repexpbar"}
-        }, -- ⭐ 新增：声望条独立容器注册
+        }, -- ⚠️ 声望条独立容器注册（原生条已禁用）
         {
             name = "reputationbar",
             frame = addon.ActionBarFrames.reputationbar,
-            blizzardFrame = ReputationWatchBar,
+            blizzardFrame = nil, -- ⚠️ 原生声望条已在disableblizzard.lua中被彻底禁用
             configPath = {"widgets", "reputationbar"}
-        }, -- ⭐ 新增：神器能量条独立容器注册
+        }, -- ⚠️ 神器能量条独立容器注册（原生条已禁用）
         {
             name = "artifactbar",
             frame = addon.ActionBarFrames.artifactbar,
-            blizzardFrame = MainMenuBarMaxLevelBar,
+            blizzardFrame = nil, -- ⚠️ 原生神器能量条已在disableblizzard.lua中被彻底禁用
             configPath = {"widgets", "artifactbar"}
         }}
 
@@ -1189,15 +1004,7 @@ end
             return
         end
 
-        -- CRÍTICO: Deshabilitar MainMenuBarMaxLevelBar INMEDIATAMENTE
-        if MainMenuBarMaxLevelBar then
-            -- ⭐ 初始隐藏，但允许后续通过事件控制
-            MainMenuBarMaxLevelBar:Hide()
-            MainMenuBarMaxLevelBar:SetAlpha(0)
-            MainMenuBarMaxLevelBar:SetFrameLevel(0)
-            -- 不禁用鼠标，让暴雪的状态驱动可以正常工作
-            -- MainMenuBarMaxLevelBar:EnableMouse(false)  -- 已移除
-        end
+        -- ⚠️ 神器能量条已在disableblizzard.lua中被彻底禁用
 
         MainMenuBarMixin:initialize()
         addon.pUiMainBar = pUiMainBar
@@ -1221,41 +1028,16 @@ end
             hooksecurefunc('MainMenuExpBar_Update', UpdateBarPositions)
         end
         
-        -- 7.3.5 compatibility: ReputationWatchBar_Update may not exist
-        if ReputationWatchBar_Update then
-            hooksecurefunc('ReputationWatchBar_Update', UpdateBarPositions)
+        -- ⚠️ 声望条已在disableblizzard.lua中被彻底禁用，无需挂钩
 
-            -- Add the essential ReputationWatchBar_Update hook for styling only
-            hooksecurefunc('ReputationWatchBar_Update', function()
-                local name = GetWatchedFactionInfo()
-                if name and ReputationWatchBar then
-                    -- Update editor positioning only if using editor system
-                    if addon.ActionBarFrames.repexpbar then
-                        UpdateBarPositions()
-                    end
-
-                    -- Configure reputation status bar for NEW style only
-                    if ReputationWatchStatusBar then
-                        ReputationWatchStatusBar:SetHeight(10)
-                        ReputationWatchStatusBar:SetClearPoint('TOPLEFT', ReputationWatchBar, 0, 3)
-
-                        -- Set size to match NEW style (537x10)
-                        ReputationWatchStatusBar:SetSize(537, 10)
-
-                        if ReputationWatchStatusBarBackground then
-                            ReputationWatchStatusBarBackground:SetAllPoints(ReputationWatchStatusBar)
-                        end
-
-                        -- Text positioning for NEW style with FIXED layering
-                        if ReputationWatchStatusBarText then
-                            -- NEW style text positioning (offset +1)
-                            ReputationWatchStatusBarText:SetClearPoint('CENTER', ReputationWatchStatusBar, 'CENTER', 0, 1)
-
-                            -- Reasonable layering - not excessively high
-                            ReputationWatchStatusBarText:SetDrawLayer("OVERLAY", 2)
-                        end
-                    end
-                end
+        -- ⭐ NDui参考：挂钩StatusTrackingBarManager.UpdateBarsShown
+        -- 当管理器试图更新经验/声望/神器能量条的显示状态时，
+        -- 强制重新应用DragonUI的布局配置，防止暴雪恢复原生显示
+        -- ⚠️ 声望条和神器能量条已在disableblizzard.lua中被彻底禁用
+        if StatusTrackingBarManager and StatusTrackingBarManager.UpdateBarsShown then
+            hooksecurefunc(StatusTrackingBarManager, "UpdateBarsShown", function()
+                if not IsModuleEnabled() then return end
+                UpdateBarPositions()
             end)
         end
 
@@ -1318,43 +1100,14 @@ end
         end
     end
     
+    -- ⚠️ 声望条和神器能量条已在disableblizzard.lua中被彻底禁用
     addon.RefreshRepBarPosition = function()
-        if not InCombatLockdown() then
-            UpdateBarPositions()
-        end
+        -- 声望条已禁用
     end
     
-    -- ⭐ 新增：导出神器能量条刷新函数
+    -- ⚠️ 神器能量条已在disableblizzard.lua中被彻底禁用
     addon.RefreshArtifactBarPosition = function()
-        if not InCombatLockdown() and addon.ActionBarFrames.artifactbar then
-            -- 检查玩家是否有神器能量
-            local hasArtifactPower = false
-            
-            if UnitPower and SPELL_POWER_ARTIFACT_POWER then
-                local artifactPower = UnitPower("player", SPELL_POWER_ARTIFACT_POWER)
-                if artifactPower and artifactPower > 0 then
-                    hasArtifactPower = true
-                end
-            end
-            
-            if not hasArtifactPower and UnitLevel then
-                local playerLevel = UnitLevel("player")
-                if playerLevel and playerLevel >= 110 then
-                    hasArtifactPower = true
-                end
-            end
-            
-            if hasArtifactPower and MainMenuBarMaxLevelBar then
-                MainMenuBarMaxLevelBar:Show()
-                MainMenuBarMaxLevelBar:SetAlpha(1)
-                MainMenuBarMaxLevelBar:EnableMouse(true)
-                addon:DebugInfo("Mainbars", "手动刷新：显示神器能量条（检测到神器能量）")
-            else
-                MainMenuBarMaxLevelBar:Hide()
-                MainMenuBarMaxLevelBar:SetAlpha(0)
-                addon:DebugInfo("Mainbars", "手动刷新：隐藏神器能量条（无神器能量）")
-            end
-        end
+        -- 神器能量条已禁用
     end
 
     -- Initialize immediately since we're already enabled
@@ -1484,93 +1237,13 @@ end
             -- ⚠️ 关键：经验值变化时，暴雪可能重置StatusBarTexture，需要重新应用纹理
             ApplyModernExpBarVisual()
         elseif event == "UPDATE_FACTION" then
-            -- ⭐ 修复：声望变化时，重新应用声望条到容器，防止暴雪重置位置
-            addon:DebugInfo("ExpRepBar", "========== 事件：UPDATE_FACTION (eventFrame) ===========")
-            if ReputationWatchBar and addon.ActionBarFrames.reputationbar then
-                -- 确保声望条仍然是容器的子元素
-                if ReputationWatchBar:GetParent() ~= addon.ActionBarFrames.reputationbar then
-                    addon:DebugInfo("ExpRepBar", "⚠️ 声望条父级被重置，重新连接到reputationbar容器")
-                    ConnectBarsToEditor()
-                end
-                -- 重新应用位置
-                UpdateBarPositions()
-                ForceReputationTextConfiguration()
-            end
+            -- ⚠️ 声望条已在disableblizzard.lua中被彻底禁用
+            addon:DebugInfo("ExpRepBar", "UPDATE_FACTION事件：声望条已禁用")
         elseif event == "ORDER_HALL_LANDING_PAGE_CLOSED" then
-            -- ⭐ 修复：当职业大厅界面关闭时，立即隐藏资源条
-            if MainMenuBarMaxLevelBar and addon.ActionBarFrames.artifactbar then
-                MainMenuBarMaxLevelBar:Hide()
-                MainMenuBarMaxLevelBar:SetAlpha(0)
-                MainMenuBarMaxLevelBar:EnableMouse(false)
-                addon:DebugInfo("Mainbars", "职业大厅界面已关闭，隐藏神器能量条")
-            end
+            -- ⚠️ 神器能量条已在disableblizzard.lua中被彻底禁用
+            addon:DebugInfo("Mainbars", "ORDER_HALL_LANDING_PAGE_CLOSED事件：神器能量条已禁用")
         elseif event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" then
-            -- ⭐ 简化逻辑：直接检查玩家是否有神器能量，不再依赖区域检测
-            C_Timer.After(0.5, function()
-                if MainMenuBarMaxLevelBar and addon.ActionBarFrames.artifactbar then
-                    -- 检查玩家是否有神器能量（7.3.5 使用 SPELL_POWER_ARTIFACT_POWER = 10）
-                    local hasArtifactPower = false
-                    
-                    -- 方法1：检查神器能量值
-                    if UnitPower and SPELL_POWER_ARTIFACT_POWER then
-                        local artifactPower = UnitPower("player", SPELL_POWER_ARTIFACT_POWER)
-                        if artifactPower and artifactPower > 0 then
-                            hasArtifactPower = true
-                        end
-                    end
-                    
-                    -- 方法2：如果 API 不可用，检查玩家等级（满级后可能有神器）
-                    if not hasArtifactPower and UnitLevel then
-                        local playerLevel = UnitLevel("player")
-                        if playerLevel and playerLevel >= 110 then
-                            -- 满级玩家可能拥有神器，尝试显示
-                            hasArtifactPower = true
-                        end
-                    end
-                    
-                    -- 根据是否有神器能量来决定显示/隐藏
-                    if hasArtifactPower then
-                        MainMenuBarMaxLevelBar:Show()
-                        MainMenuBarMaxLevelBar:SetAlpha(1)
-                        MainMenuBarMaxLevelBar:EnableMouse(true)
-                        addon:DebugInfo("Mainbars", "检测到神器能量，显示神器能量条")
-                    else
-                        MainMenuBarMaxLevelBar:Hide()
-                        MainMenuBarMaxLevelBar:SetAlpha(0)
-                        MainMenuBarMaxLevelBar:EnableMouse(false)
-                        addon:DebugInfo("Mainbars", "未检测到神器能量，隐藏神器能量条")
-                    end
-                end
-                
-                -- ⭐ 关键修复：切换地图/进入世界后，重新应用声望条位置，防止暴雪重置
-                if ReputationWatchBar and addon.ActionBarFrames.reputationbar then
-                    addon:DebugInfo("ExpRepBar", "⭐ 切换地图/进入世界后，重新应用声望条位置")
-                    
-                    -- 确保声望条仍然是容器的子元素
-                    if ReputationWatchBar:GetParent() ~= addon.ActionBarFrames.reputationbar then
-                        addon:DebugInfo("ExpRepBar", "⚠️ 声望条父级被暴雪重置，重新连接到reputationbar容器")
-                        ConnectBarsToEditor()
-                    end
-                    
-                    -- 重新应用位置
-                    UpdateBarPositions()
-                    ForceReputationTextConfiguration()
-                end
-                
-                -- ⭐ 新增：切换地图/进入世界后，重新应用神器能量条位置，防止暴雪重置
-                if MainMenuBarMaxLevelBar and addon.ActionBarFrames.artifactbar then
-                    addon:DebugInfo("Mainbars", "⭐ 切换地图/进入世界后，重新应用神器能量条位置")
-                    
-                    -- 确保神器能量条仍然是容器的子元素
-                    if MainMenuBarMaxLevelBar:GetParent() ~= addon.ActionBarFrames.artifactbar then
-                        addon:DebugInfo("Mainbars", "⚠️ 神器能量条父级被暴雪重置，重新连接到artifactbar容器")
-                        ConnectBarsToEditor()
-                    end
-                    
-                    -- 重新应用位置和显隐状态
-                    ApplyArtifactBarPosition()
-                end
-            end)
+            -- ⚠️ 声望条和神器能量条已在disableblizzard.lua中被彻底禁用
         end
     end)
 
@@ -1603,9 +1276,7 @@ end
                 if MainMenuBarExpText then
                     MainMenuBarExpText:Hide()
                 end
-                if ReputationWatchBarText then
-                    ReputationWatchBarText:Hide()
-                end
+                -- ⚠️ 声望条已在disableblizzard.lua中被彻底禁用
                 
                 -- Ensure gryphons are on top after all setup is complete
                 if pUiMainBarArt then
@@ -1664,7 +1335,7 @@ end
                 ApplyActionBarPositions()
                 PositionActionBarsToContainers()
                 
-                -- ⭐ 新增：战斗结束后重新应用经验条和声望条位置（补偿性修正）
+                -- ⭐ 战斗结束后重新应用经验条位置（补偿性修正）
                 if MainMenuExpBar and addon.ActionBarFrames.repexpbar then
                     local config = addon.db and addon.db.profile.xprepbar
                     if config then
@@ -1675,43 +1346,15 @@ end
                     end
                 end
                 
-                if ReputationWatchBar and addon.ActionBarFrames.reputationbar then
-                    local watchedFaction = GetWatchedFactionInfo()
-                    if watchedFaction then
-                        local config = addon.db and addon.db.profile.xprepbar
-                        if config then
-                            local repOffset = config.repbar_offset or -15
-                            ReputationWatchBar:ClearAllPoints()
-                            ReputationWatchBar:SetPoint("CENTER", addon.ActionBarFrames.reputationbar, "CENTER", 0, repOffset)
-                            addon:DebugInfo("ExpRepBar", "✅ 战斗结束：重新定位声望条")
-                        end
-                    end
-                end
-                
-                -- ⭐ 新增：战斗结束后重新应用神器能量条位置（补偿性修正）
-                if MainMenuBarMaxLevelBar and addon.ActionBarFrames.artifactbar then
-                    ApplyArtifactBarPosition()
-                    addon:DebugInfo("Mainbars", "✅ 战斗结束：重新定位神器能量条")
-                end
+                -- ⚠️ 声望条和神器能量条已在disableblizzard.lua中被彻底禁用
             end
 
         elseif event == "UPDATE_FACTION" then
-            -- Update reputation bar when watched faction changes - Execute immediately
+            -- ⚠️ 声望条已在disableblizzard.lua中被彻底禁用
             if IsModuleEnabled() then
-                -- ⚠️ 关键：强制初始化ReputationWatchStatusBar
-                if ReputationWatchBar and ReputationWatchBar:IsShown() and not ReputationWatchStatusBar then
-                    addon:DebugInfo("ExpRepBar", "警告：UPDATE_FACTION时ReputationWatchStatusBar不存在")
-                    -- 尝试通过再次调用ConnectBarsToEditor来初始化
-                    C_Timer.After(0.1, function()
-                        ConnectBarsToEditor()
-                        ApplyModernExpBarVisual()
-                        UpdateBarPositions()
-                    end)
-                else
-                    ApplyModernExpBarVisual()
-                    ForceReputationTextConfiguration()
-                    UpdateBarPositions()
-                end
+                -- 经验条可能需要重新应用视觉效果
+                ApplyModernExpBarVisual()
+                UpdateBarPositions()
             end
 
         elseif event == "PET_BAR_UPDATE" or event == "PET_BAR_UPDATE_COOLDOWN" or event == "UNIT_PET" then

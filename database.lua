@@ -460,6 +460,9 @@ local defaults = {
             keybinding = {
                 enabled = true, -- Enable LibKeyBound integration for intuitive keybinding (hover + key press)
                 auto_register_action_buttons = true -- Automatically make action buttons bindable
+            },
+            disableblizzard = {
+                enabled = false -- Disable Blizzard native UI elements (XP bar, Reputation bar, Artifact bar, etc.)
             }
         }
     }

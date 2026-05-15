@@ -2,6 +2,9 @@
     <!-- Conflict Detection module (loaded early) -->
     <Script file="compatibility.lua"/>
     
+    <!-- Disable Blizzard UI Elements module -->
+    <Script file="disableblizzard.lua"/>
+    
     <!-- Actionbar modules -->
     <Script file="noop.lua"/>
     <Script file="buttons.lua"/>
