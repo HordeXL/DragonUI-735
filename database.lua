@@ -43,7 +43,7 @@ local defaults = {
             petbar = {
                 anchor = "BOTTOM",
                 posX = 1,
-                posY = 148
+                posY = 175
             },
             playerCastbar = {
                 anchor = "BOTTOM",
@@ -222,7 +222,7 @@ local defaults = {
             spacing = 6,
             stance = {
                 x_position = -215,
-                y_offset = -50, -- Additional Y offset for fine-tuning position
+                y_offset = -28, -- Additional Y offset for fine-tuning position
                 button_size = 32, -- Size of stance buttons
                 button_spacing = 3 -- Spacing between stance buttons
             },
