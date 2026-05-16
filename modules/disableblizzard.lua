@@ -201,14 +201,46 @@ function DisableBlizzardModule:DisableBlizzardFrames()
     local function KillBlizzardBar(frame, name)
         if not frame then return end
         
-        -- 第一层：永久覆盖 Show() 方法
+        -- 第一层：永久覆盖 Show() 方法（阻止 :Show() 调用）
         if not frame.__dragonuiShowBlocked then
             frame.__originalShow = frame.Show
-            frame.Show = function() end
+            frame.Show = function()
+                addon:DebugInfo("DisableBlizzard", string.format("⛔ Show()被拦截: %s", name))
+            end
             frame.__dragonuiShowBlocked = true
         end
+
+        -- 第二层：覆盖 SetShown() 方法（阻止 :SetShown(true) 调用）
+        if not frame.__dragonuiSetShownBlocked then
+            frame.__originalSetShown = frame.SetShown
+            frame.SetShown = function(self, shown)
+                if shown then
+                    addon:DebugInfo("DisableBlizzard", string.format("⛔ SetShown(true)被拦截: %s", name))
+                    return
+                end
+                if frame.__originalSetShown then
+                    frame.__originalSetShown(self, false)
+                end
+            end
+            frame.__dragonuiSetShownBlocked = true
+        end
+
+        -- 第三层：覆盖 SetAlpha()（防止透明度被恢复）
+        if not frame.__dragonuiAlphaBlocked then
+            frame.__originalSetAlpha = frame.SetAlpha
+            frame.SetAlpha = function(self, alpha)
+                if alpha > 0 then
+                    addon:DebugInfo("DisableBlizzard", string.format("⛔ SetAlpha(%.1f)被拦截: %s", alpha or 0, name))
+                    return
+                end
+                if frame.__originalSetAlpha then
+                    frame.__originalSetAlpha(self, 0)
+                end
+            end
+            frame.__dragonuiAlphaBlocked = true
+        end
         
-        -- 第二层：覆盖 SetParent()，防止被重新挂到可见父级
+        -- 第四层：覆盖 SetParent()，防止被重新挂到可见父级
         if not frame.__dragonuiParentBlocked then
             frame.__originalSetParent = frame.SetParent
             frame.SetParent = function(self, newParent)
@@ -221,26 +253,26 @@ function DisableBlizzardModule:DisableBlizzardFrames()
             frame.__dragonuiParentBlocked = true
         end
         
-        -- 第三层：OnShow脚本强制隐藏（引擎级保护）
+        -- 第五层：OnShow脚本强制隐藏（引擎级保护，即使C++层面显示也会被拦截）
         frame:SetScript("OnShow", function(self)
             self:Hide()
             self:SetAlpha(0)
-            addon:DebugInfo("DisableBlizzard", string.format("⛔ OnShow拦截: %s", name))
+            addon:DebugInfo("DisableBlizzard", string.format("⛔ OnShow拦截: %s (引擎级)", name))
         end)
-        
-        -- 第四层：物理移除到隐藏框架
+
+        -- 第六层：物理移除到隐藏框架（断绝视觉路径）
         frame:SetParent(hiddenFrame)
         frame:ClearAllPoints()
-        
-        -- 第五层：强制隐藏+透明
+
+        -- 第七层：强制隐藏+零透明（双重保险）
         frame:Hide()
         frame:SetAlpha(0)
-        
-        -- 第六层：禁用所有事件和脚本
+
+        -- 第八层：禁用所有事件和脚本（断绝逻辑路径）
         frame:UnregisterAllEvents()
         DisableAllScripts(frame)
-        
-        addon:DebugInfo("DisableBlizzard", string.format("☢️ 已从底层杀死: %s", name))
+
+        addon:DebugInfo("DisableBlizzard", string.format("☢️ 已从底层杀死: %s (8层防护)", name))
     end
     
     -- 执行深层杀死
@@ -280,7 +312,7 @@ function DisableBlizzardModule:DisableBlizzardFrames()
     
     BlockSetPoint(MainMenuExpBar, "MainMenuExpBar")
     BlockSetPoint(ReputationWatchBar, "ReputationWatchBar")
-    BlockSetPoint(MainMenuBarMaxLevelBar, "MainMenuBarMaxLevelBar")
+    -- ⚠️ MainMenuBarMaxLevelBar 不拦截 SetPoint，由mainbars.lua的artifactbar容器管理
     
     self.initialized = true
     addon:DebugInfo("DisableBlizzard", "========== 禁用暴雪原生UI元素完成 ==========")
@@ -290,13 +322,8 @@ end
 -- 模块初始化
 -- ============================================================================
 local function InitializeDisableBlizzard()
-    -- 检查模块是否启用
-    local config = addon.db and addon.db.profile and addon.db.profile.modules
-    if not config or not config.disableblizzard or not config.disableblizzard.enabled then
-        addon:DebugInfo("DisableBlizzard", "模块未启用，跳过初始化")
-        return
-    end
-    
+    -- ⚠️ 移除配置检查：声望条禁用是核心功能，必须始终执行
+    -- 即使模块未启用，也需要阻止原生声望条显示
     addon:DebugInfo("DisableBlizzard", "禁用暴雪原生UI模块开始加载")
     
     -- 在ADDON_LOADED事件中初始化
