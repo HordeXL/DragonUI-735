@@ -19,8 +19,11 @@ local framesToHide = {
 
 -- 需要禁用事件和脚本的框架列表
 local framesToDisable = {
+    -- ⚠️ MainMenuExpBar 不在此列表！由 DragonUI 的 mainbars.lua 完全接管
+    -- 禁用它的 OnValueChanged 会导致进度条无法实时刷新（StatusBar 核心机制）
+    -- 纹理隐藏已在下方步骤3单独处理
+
     -- 经验条相关
-    MainMenuExpBar,           -- 主经验条（只禁用事件，不隐藏，由DragonUI接管）
     ExhaustionTick,           -- 休息状态标记
     
     -- 声望条相关

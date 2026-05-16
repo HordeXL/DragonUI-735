@@ -1277,9 +1277,13 @@ end
             ApplyModernExpBarVisual()
             ForceReputationTextConfiguration()
         elseif event == "PLAYER_XP_UPDATE" then
-            addon:DebugInfo("ExpRepBar", "========== 事件：PLAYER_XP_UPDATE ===========")
-            -- ⚠️ 关键：经验值变化时，暴雪可能重置StatusBarTexture，需要重新应用纹理
-            ApplyModernExpBarVisual()
+            addon:DebugInfo("ExpRepBar", "========== 事件：PLAYER_XP_UPDATE ==========")
+            -- ⚠️ 不再调用 ApplyModernExpBarVisual()！
+            -- 进度填充由暴雪 SetValue() 自动管理，每次 XP 变化都会实时更新宽度
+            -- 这里只做轻量级操作：更新自定义文本数据
+            if addon.UpdateExpBarText then
+                addon.UpdateExpBarText()
+            end
         elseif event == "UPDATE_FACTION" then
             addon:DebugInfo("ExpRepBar", "UPDATE_FACTION事件：更新声望条")
             UpdateBarPositions()
