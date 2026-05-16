@@ -1587,6 +1587,15 @@ end
 
 addon.UpdateExpBarText = UpdateExpBarText
 
+C_Timer.After(1.0, function()
+    if MainMenuBarExpText then
+        hooksecurefunc(MainMenuBarExpText, "Show", function(self)
+            self:Hide()
+        end)
+        MainMenuBarExpText:Hide()
+    end
+end)
+
 local expTextUpdateFrame = CreateFrame("Frame")
 expTextUpdateFrame:RegisterEvent("PLAYER_XP_UPDATE")
 expTextUpdateFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
