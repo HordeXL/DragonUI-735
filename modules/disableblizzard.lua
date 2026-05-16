@@ -204,7 +204,15 @@ function DisableBlizzardModule:DisableBlizzardFrames()
         -- 第一层：永久覆盖 Show() 方法（阻止 :Show() 调用）
         if not frame.__dragonuiShowBlocked then
             frame.__originalShow = frame.Show
-            frame.Show = function()
+            frame.Show = function(self)
+                -- ⚠️ 特殊处理：允许 MainMenuExpBar 正常显示（由 DragonUI 控制）
+                if name == "MainMenuExpBar" then
+                    if frame.__originalShow then
+                        frame.__originalShow(self)
+                    end
+                    return
+                end
+                
                 addon:DebugInfo("DisableBlizzard", string.format("⛔ Show()被拦截: %s", name))
             end
             frame.__dragonuiShowBlocked = true
@@ -214,6 +222,14 @@ function DisableBlizzardModule:DisableBlizzardFrames()
         if not frame.__dragonuiSetShownBlocked then
             frame.__originalSetShown = frame.SetShown
             frame.SetShown = function(self, shown)
+                -- ⚠️ 特殊处理：允许 MainMenuExpBar 正常显示（由 DragonUI 控制）
+                if name == "MainMenuExpBar" then
+                    if frame.__originalSetShown then
+                        frame.__originalSetShown(self, shown)
+                    end
+                    return
+                end
+                
                 if shown then
                     addon:DebugInfo("DisableBlizzard", string.format("⛔ SetShown(true)被拦截: %s", name))
                     return
@@ -229,6 +245,15 @@ function DisableBlizzardModule:DisableBlizzardFrames()
         if not frame.__dragonuiAlphaBlocked then
             frame.__originalSetAlpha = frame.SetAlpha
             frame.SetAlpha = function(self, alpha)
+                -- ⚠️ 特殊处理：允许 MainMenuExpBar 设置透明度（由 DragonUI 控制）
+                if name == "MainMenuExpBar" then
+                    -- 允许 DragonUI 控制透明度
+                    if frame.__originalSetAlpha then
+                        frame.__originalSetAlpha(self, alpha)
+                    end
+                    return
+                end
+                
                 if alpha > 0 then
                     addon:DebugInfo("DisableBlizzard", string.format("⛔ SetAlpha(%.1f)被拦截: %s", alpha or 0, name))
                     return
@@ -244,7 +269,16 @@ function DisableBlizzardModule:DisableBlizzardFrames()
         if not frame.__dragonuiParentBlocked then
             frame.__originalSetParent = frame.SetParent
             frame.SetParent = function(self, newParent)
-                if newParent ~= hiddenFrame and newParent ~= UIParent then
+                -- ⚠️ 特殊处理：允许 MainMenuExpBar 设置到 DragonUI 的 repexpbar 容器
+                local isAllowedParent = false
+                if name == "MainMenuExpBar" then
+                    -- 允许设置到 repexpbar 容器（由 DragonUI 创建）
+                    if newParent and newParent.GetName and newParent:GetName() == "DragonUI_RepExpBar" then
+                        isAllowedParent = true
+                    end
+                end
+                
+                if not isAllowedParent and newParent ~= hiddenFrame and newParent ~= UIParent then
                     addon:DebugInfo("DisableBlizzard", string.format("⛔ 拦截 SetParent(%s -> %s)", name, newParent and newParent.GetName and newParent:GetName() or tostring(newParent)))
                     return
                 end
@@ -255,22 +289,36 @@ function DisableBlizzardModule:DisableBlizzardFrames()
         
         -- 第五层：OnShow脚本强制隐藏（引擎级保护，即使C++层面显示也会被拦截）
         frame:SetScript("OnShow", function(self)
+            -- ⚠️ 特殊处理：允许 MainMenuExpBar 正常显示（由 DragonUI 控制）
+            if name == "MainMenuExpBar" then
+                return  -- 放行，让 DragonUI 控制显示
+            end
+            
             self:Hide()
             self:SetAlpha(0)
             addon:DebugInfo("DisableBlizzard", string.format("⛔ OnShow拦截: %s (引擎级)", name))
         end)
 
         -- 第六层：物理移除到隐藏框架（断绝视觉路径）
-        frame:SetParent(hiddenFrame)
-        frame:ClearAllPoints()
+        -- ⚠️ 特殊处理：MainMenuExpBar 不移动到隐藏框架（由 DragonUI 控制）
+        if name ~= "MainMenuExpBar" then
+            frame:SetParent(hiddenFrame)
+            frame:ClearAllPoints()
+        end
 
         -- 第七层：强制隐藏+零透明（双重保险）
-        frame:Hide()
-        frame:SetAlpha(0)
+        -- ⚠️ 特殊处理：MainMenuExpBar 不强制隐藏（由 DragonUI 控制）
+        if name ~= "MainMenuExpBar" then
+            frame:Hide()
+            frame:SetAlpha(0)
+        end
 
         -- 第八层：禁用所有事件和脚本（断绝逻辑路径）
-        frame:UnregisterAllEvents()
-        DisableAllScripts(frame)
+        -- ⚠️ 特殊处理：MainMenuExpBar 不禁用事件和脚本（需要更新经验值）
+        if name ~= "MainMenuExpBar" then
+            frame:UnregisterAllEvents()
+            DisableAllScripts(frame)
+        end
 
         addon:DebugInfo("DisableBlizzard", string.format("☢️ 已从底层杀死: %s (8层防护)", name))
     end
@@ -285,8 +333,15 @@ function DisableBlizzardModule:DisableBlizzardFrames()
     if MainMenuExpBar_Update then
         hooksecurefunc("MainMenuExpBar_Update", function()
             if MainMenuExpBar then
-                MainMenuExpBar:Hide()
-                MainMenuExpBar:SetAlpha(0)
+                -- ⚠️ 不再隐藏经验条，由DragonUI的UpdateBarPositions管理显示/隐藏
+                -- 只拦截暴雪的纹理重置和装饰恢复
+                if MainMenuXPBarTextureMid then MainMenuXPBarTextureMid:Hide() end
+                if MainMenuXPBarTextureLeftCap then MainMenuXPBarTextureLeftCap:Hide() end
+                if MainMenuXPBarTextureRightCap then MainMenuXPBarTextureRightCap:Hide() end
+                for i = 1, 19 do
+                    local div = _G["MainMenuXPBarDiv" .. i]
+                    if div then div:Hide() end
+                end
             end
         end)
     end
@@ -310,9 +365,8 @@ function DisableBlizzardModule:DisableBlizzardFrames()
         frame.__dragonuiPointBlocked = true
     end
     
-    BlockSetPoint(MainMenuExpBar, "MainMenuExpBar")
     BlockSetPoint(ReputationWatchBar, "ReputationWatchBar")
-    -- ⚠️ MainMenuBarMaxLevelBar 不拦截 SetPoint，由mainbars.lua的artifactbar容器管理
+    -- ⚠️ MainMenuExpBar 不拦截 SetPoint，由 mainbars.lua 的 Hook SetPoint 机制管理（更完善，支持 DragonUI_RepExpBar 容器定位）
     
     self.initialized = true
     addon:DebugInfo("DisableBlizzard", "========== 禁用暴雪原生UI元素完成 ==========")

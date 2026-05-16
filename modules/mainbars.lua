@@ -571,6 +571,9 @@ end
             return
         end
         
+        -- ⚠️ 关键：确保容器框架可见（CreateUIFrame 默认不显示）
+        addon.ActionBarFrames.repexpbar:Show()
+        
         -- Get config values for initial setup
         local config = addon.db and addon.db.profile.xprepbar
         local expScale = (config and config.expbar_scale) or 0.9
@@ -585,6 +588,11 @@ end
             mainMenuExpBar:SetScale(expScale)
             mainMenuExpBar:SetFrameStrata("MEDIUM")
             mainMenuExpBar:SetPoint("CENTER", addon.ActionBarFrames.repexpbar, "CENTER", 0, 0)
+            
+            -- ⚠️ 关键：重置初始状态（可能被 KillBlizzardBar 隐藏了）
+            -- 显示/隐藏的最终决策由 UpdateBarPositions 处理
+            mainMenuExpBar:Show()
+            mainMenuExpBar:SetAlpha(1)
         end
 
         -- ⚠️ 声望条和神器能量条已在disableblizzard.lua中被彻底禁用
@@ -1191,27 +1199,26 @@ end
         addon:DebugInfo("ExpRepBar", "已隐藏所有Div分隔条")
         
         -- ✅ 关键：使用DragonUI的双层纹理系统（正确理解）
-        -- 第1层（BORDER）：StatusBarTexture用于进度填充
-        
-        -- ⚠️ 关键：不设置StatusBarTexture，使用暴雪默认的
-        -- 暴雪的默认StatusBarTexture已经是正确的，会自动管理颜色
-        -- 我们只需要设置TexCoord来限制显示区域
-        addon:DebugInfo("ExpRepBar", "使用暴雪默认StatusBarTexture，不设置自定义纹理")
-        
+        -- 第1层（BORDER）：StatusBarTexture用于进度填充（由暴雪自动管理宽度）
+
         -- 获取StatusBarTexture并设置属性
         local originalTexture = mainMenuExpBar:GetStatusBarTexture()
         if originalTexture then
             originalTexture:SetDrawLayer('BORDER')
-            -- 使用暴雪默认的TexCoord，不改变它
-            addon:DebugInfo("ExpRepBar", "已设置BORDER层")
+            -- ⚠️ 只设置高度和锚点，不设置宽度！
+            -- 暴雪的SetValue()会自动根据百分比调整宽度，SetSize会干扰此机制
+            originalTexture:SetHeight(10)
+            originalTexture:SetPoint('TOPLEFT', mainMenuExpBar, 'TOPLEFT', 0, 0)
+            originalTexture:SetPoint('BOTTOMLEFT', mainMenuExpBar, 'BOTTOMLEFT', 0, 0)
+            addon:DebugInfo("ExpRepBar", "已设置BORDER层（高度+锚点，宽度由暴雪自动管理）")
         end
-        
+
         -- 第2层（ARTWORK）：创建边框纹理，使用ui-hud-experiencebar-round区域
         if not mainMenuExpBar.status then
             mainMenuExpBar.status = mainMenuExpBar:CreateTexture(nil, 'ARTWORK')
             addon:DebugInfo("ExpRepBar", "已创建mainMenuExpBar.status纹理")
         end
-        
+
         -- 设置边框纹理（使用ui-hud-experiencebar-round的TexCoord）
         mainMenuExpBar.status:SetTexture(addon._dir .. "uiexperiencebar")
         mainMenuExpBar.status:SetSize(537, 18)  -- ui-hud-experiencebar-round的尺寸
@@ -1310,6 +1317,12 @@ end
                 -- Hide text by default
                 if MainMenuBarExpText then
                     MainMenuBarExpText:Hide()
+                end
+
+                if addon.UpdateExpBarText then
+                    C_Timer.After(0.2, function()
+                        addon.UpdateExpBarText()
+                    end)
                 end
                 
                 -- Ensure gryphons are on top after all setup is complete
@@ -1426,8 +1439,8 @@ function addon.UpdateGryphonStyle()
     local faction = UnitFactionGroup('player')
 
     if db_style.gryphons == 'old' then
-        MainMenuBarLeftEndCap:SetClearPoint('BOTTOMLEFT', -85, -42)
-        MainMenuBarRightEndCap:SetClearPoint('BOTTOMRIGHT', 84, -42)
+        MainMenuBarLeftEndCap:SetClearPoint('BOTTOMLEFT', -85, -52)
+        MainMenuBarRightEndCap:SetClearPoint('BOTTOMRIGHT', 84, -52)
         MainMenuBarLeftEndCap:set_atlas('ui-hud-actionbar-gryphon-left', true)
         MainMenuBarRightEndCap:set_atlas('ui-hud-actionbar-gryphon-right', true)
         MainMenuBarLeftEndCap:Show()
@@ -1530,6 +1543,96 @@ end
 
 -- Alias for compatibility
 addon.RefreshMainbars = addon.RefreshMainbarsSystem
+
+-- ============================================================================
+-- 模块级自定义经验条文本（悬停显示，与声望条行为一致）
+-- ============================================================================
+
+addon.ExpBarText = nil
+
+local function CreateExpBarText()
+    if not MainMenuExpBar then return end
+
+    if not addon.ExpBarText then
+        local text = MainMenuExpBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        text:SetPoint("CENTER", MainMenuExpBar, "CENTER", 0, 0)
+        text:SetJustifyH("CENTER")
+        text:Hide()
+        addon.ExpBarText = text
+    end
+
+    return addon.ExpBarText
+end
+
+local function UpdateExpBarText()
+    local text = CreateExpBarText()
+    if not text then return end
+
+    local currentXP = UnitXP("player") or 0
+    local maxXP = UnitXPMax("player") or 1
+    local restXP = GetXPExhaustion() or 0
+    local playerLevel = UnitLevel("player") or 0
+
+    if maxXP > 0 then
+        local percent = math.floor(currentXP / maxXP * 100)
+        if restXP and restXP > 0 then
+            text:SetText(string.format("%d / %d (%d%%) [+%d休息]", currentXP, maxXP, percent, restXP))
+        else
+            text:SetText(string.format("%d / %d (%d%%)", currentXP, maxXP, percent))
+        end
+    else
+        text:SetText("")
+    end
+end
+
+addon.UpdateExpBarText = UpdateExpBarText
+
+local expTextUpdateFrame = CreateFrame("Frame")
+expTextUpdateFrame:RegisterEvent("PLAYER_XP_UPDATE")
+expTextUpdateFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+expTextUpdateFrame:RegisterEvent("UPDATE_EXHAUSTION")
+expTextUpdateFrame:SetScript("OnEvent", function(self, event)
+    if event == "PLAYER_XP_UPDATE" or event == "PLAYER_ENTERING_WORLD" or event == "UPDATE_EXHAUSTION" then
+        C_Timer.After(0.1, UpdateExpBarText)
+    end
+end)
+
+C_Timer.After(2.0, function()
+    if MainMenuExpBar then
+        MainMenuExpBar:EnableMouse(true)
+        MainMenuExpBar:SetScript("OnEnter", function(self)
+            UpdateExpBarText()
+            if addon.ExpBarText then
+                addon.ExpBarText:Show()
+            end
+
+            GameTooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT", 0, 8)
+            local currentXP = UnitXP("player") or 0
+            local maxXP = UnitXPMax("player") or 1
+            local restXP = GetXPExhaustion() or 0
+            local playerLevel = UnitLevel("player") or 0
+            GameTooltip:AddLine(string.format("等级 %d 经验", playerLevel), 1, 1, 1)
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddDoubleLine("当前经验", string.format("%d / %d", currentXP, maxXP), 1, 1, 1, 1, 1, 1)
+            if maxXP > 0 then
+                GameTooltip:AddDoubleLine("完成百分比", string.format("%.1f%%", currentXP / maxXP * 100), 1, 1, 1, 1, 1, 1)
+                local remaining = maxXP - currentXP
+                GameTooltip:AddDoubleLine("剩余经验", tostring(remaining), 1, 1, 1, 1, 1, 1)
+            end
+            if restXP and restXP > 0 then
+                GameTooltip:AddDoubleLine("休息经验", string.format("+%d (双倍)", restXP), 0, 0.8, 1, 0, 0.8, 1)
+            end
+            GameTooltip:Show()
+        end)
+
+        MainMenuExpBar:SetScript("OnLeave", function(self)
+            if addon.ExpBarText then
+                addon.ExpBarText:Hide()
+            end
+            GameTooltip:Hide()
+        end)
+    end
+end)
 
 -- ============================================================================
 -- 模块级自定义声望条（完全独立于 InitializeMainbars 作用域）
@@ -1670,4 +1773,49 @@ _G["TestRepAPI"] = function()
     print(string.format("声望: %s | 等级: %s(%d)", name, standingLabel, standing))
     print(string.format("barMin=%d  barMax=%d  barValue=%d", barMin or 0, barMax or 0, barValue or 0))
     print(string.format("当前等级进度: %d / %d", (barValue or 0) - (barMin or 0), (barMax or 0) - (barMin or 0)))
+end
+
+-- ============================================================================
+-- ⚠️ 独立初始化：确保经验条容器始终存在（不依赖模块启用状态）
+-- ============================================================================
+do
+    -- 确保 ActionBarFrames 表存在
+    if not addon.ActionBarFrames then
+        addon.ActionBarFrames = {}
+    end
+    
+    -- 如果 repexpbar 容器不存在，立即创建（模块未启用时也需要）
+    if not addon.ActionBarFrames.repexpbar then
+        local container = CreateFrame("Frame", "DragonUI_RepExpBar", UIParent)
+        container:SetSize(537, 10)
+        container:SetFrameStrata("MEDIUM")
+        container:SetFrameLevel(1)
+        -- 设置默认位置（屏幕底部中央）
+        container:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 60)
+        container:Show()  -- ⚠️ 关键：确保显示
+        
+        addon.ActionBarFrames.repexpbar = container
+    end
+    
+    -- 初始化时直接设置经验条到容器
+    C_Timer.After(1.0, function()
+        if MainMenuExpBar and addon.ActionBarFrames.repexpbar then
+            MainMenuExpBar:SetParent(addon.ActionBarFrames.repexpbar)
+            MainMenuExpBar:ClearAllPoints()
+            MainMenuExpBar:SetSize(526, 10)
+            MainMenuExpBar:SetPoint("CENTER", addon.ActionBarFrames.repexpbar, "CENTER", 0, 0)
+            
+            -- 检查玩家等级决定是否显示
+            local playerLevel = UnitLevel("player") or 0
+            local maxLevel = GetMaxPlayerLevel() or 0
+            
+            if playerLevel < maxLevel then
+                MainMenuExpBar:Show()
+                MainMenuExpBar:SetAlpha(1)
+            else
+                MainMenuExpBar:Hide()
+                MainMenuExpBar:SetAlpha(0)
+            end
+        end
+    end)
 end
