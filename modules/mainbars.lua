@@ -552,7 +552,7 @@ end
 
         -- Initial setup for XP/Rep bars with NEW style sizes
         if MainMenuExpBar then
-            MainMenuExpBar:SetClearPoint('BOTTOM', UIParent, 0, 6)
+            MainMenuExpBar:SetClearPoint('BOTTOM', UIParent, 0, 31)
             MainMenuExpBar:SetFrameLevel(1) -- Lower level for editor overlay visibility
             -- Set NEW style size immediately
             MainMenuExpBar:SetSize(537, 10)
@@ -913,7 +913,7 @@ end
         {
             frame = addon.ActionBarFrames.repexpbar,
             config = widgets.repexpbar,
-            default = {"BOTTOM", 0, 35}
+            default = {"BOTTOM", 0, 60}
         }, -- ⭐ 新增：声望条默认位置（经验条下方）
         {
             frame = addon.ActionBarFrames.reputationbar,
@@ -1426,15 +1426,15 @@ function addon.UpdateGryphonStyle()
     local faction = UnitFactionGroup('player')
 
     if db_style.gryphons == 'old' then
-        MainMenuBarLeftEndCap:SetClearPoint('BOTTOMLEFT', -85, -22)
-        MainMenuBarRightEndCap:SetClearPoint('BOTTOMRIGHT', 84, -22)
+        MainMenuBarLeftEndCap:SetClearPoint('BOTTOMLEFT', -85, -42)
+        MainMenuBarRightEndCap:SetClearPoint('BOTTOMRIGHT', 84, -42)
         MainMenuBarLeftEndCap:set_atlas('ui-hud-actionbar-gryphon-left', true)
         MainMenuBarRightEndCap:set_atlas('ui-hud-actionbar-gryphon-right', true)
         MainMenuBarLeftEndCap:Show()
         MainMenuBarRightEndCap:Show()
     elseif db_style.gryphons == 'new' then
-        MainMenuBarLeftEndCap:SetClearPoint('BOTTOMLEFT', -94, -23)
-        MainMenuBarRightEndCap:SetClearPoint('BOTTOMRIGHT', 95, -23)
+        MainMenuBarLeftEndCap:SetClearPoint('BOTTOMLEFT', -94, -18)
+        MainMenuBarRightEndCap:SetClearPoint('BOTTOMRIGHT', 95, -18)
         if faction == 'Alliance' then
             MainMenuBarLeftEndCap:set_atlas('ui-hud-actionbar-gryphon-thick-left', true)
             MainMenuBarRightEndCap:set_atlas('ui-hud-actionbar-gryphon-thick-right', true)
@@ -1445,8 +1445,8 @@ function addon.UpdateGryphonStyle()
         MainMenuBarLeftEndCap:Show()
         MainMenuBarRightEndCap:Show()
     elseif db_style.gryphons == 'flying' then
-        MainMenuBarLeftEndCap:SetClearPoint('BOTTOMLEFT', -80, -21)
-        MainMenuBarRightEndCap:SetClearPoint('BOTTOMRIGHT', 80, -21)
+        MainMenuBarLeftEndCap:SetClearPoint('BOTTOMLEFT', -80, -16)
+        MainMenuBarRightEndCap:SetClearPoint('BOTTOMRIGHT', 80, -16)
         MainMenuBarLeftEndCap:set_atlas('ui-hud-actionbar-gryphon-flying-left', true)
         MainMenuBarRightEndCap:set_atlas('ui-hud-actionbar-gryphon-flying-right', true)
         MainMenuBarLeftEndCap:Show()

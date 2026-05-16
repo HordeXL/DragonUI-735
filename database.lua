@@ -59,7 +59,7 @@ local defaults = {
             mainbar = {
                 anchor = "BOTTOM",
                 posX = 0,
-                posY = 22
+                posY = 47
             },
             rightbar = {
                 anchor = "RIGHT",
@@ -74,12 +74,12 @@ local defaults = {
             bottombarleft = {
                 anchor = "BOTTOM",
                 posX = -10,
-                posY = 64
+                posY = 89
             },
             bottombarright = {
                 anchor = "BOTTOM",
                 posX = -10,
-                posY = 105
+                posY = 130
             },
             micromenu = {
                 anchor = "BOTTOMRIGHT",
@@ -94,7 +94,7 @@ local defaults = {
             repexpbar = {
                 anchor = "BOTTOM",
                 posX = 1,
-                posY = 7
+                posY = 32
             },
             -- ⭐ 新增：声望条独立容器默认位置
             reputationbar = {
