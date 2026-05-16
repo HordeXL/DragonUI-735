@@ -102,11 +102,10 @@ local defaults = {
                 posX = 2,
                 posY = 220
             },
-            -- ⭐ 新增：神器能量条独立容器默认位置
             artifactbar = {
                 anchor = "BOTTOM",
                 posX = 0,
-                posY = 320
+                posY = 15
             },
             vehicleseat = {
                 anchor = "RIGHT",
