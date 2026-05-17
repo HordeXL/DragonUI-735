@@ -79,8 +79,76 @@ local function ReplaceBlizzardFrame(frame)
 end
 
 -- =============================================================================
--- QUEST TRACKER STYLING (simplified - no hooks)
 -- =============================================================================
+-- 智能高度计算系统：根据任务数量自动调整框架高度
+-- =============================================================================
+local function CalculateOptimalTrackerHeight()
+    local numQuests = 0
+
+    -- 安全获取当前追踪的任务数量
+    pcall(function()
+        if GetNumQuestWatches then
+            local success, count = pcall(GetNumQuestWatches)
+            if success and count then
+                for i = 1, count do
+                    local questIndex = GetQuestIndexForWatch(i)
+                    if questIndex then
+                        numQuests = numQuests + 1
+                    end
+                end
+            end
+        end
+
+        -- 如果使用 C_QuestLog API (Legion+)
+        if C_QuestLog and C_QuestLog.GetNumQuestWatches then
+            local count = C_QuestLog.GetNumQuestWatches()
+            if count and count > numQuests then
+                numQuests = count
+            end
+        end
+    end)
+
+    -- 计算最优高度
+    -- 头部区域: ~40px
+    -- 每个任务: ~35px (标题20px + 目标15px + 间距)
+    -- 底部边距: ~10px
+    local headerHeight = 40
+    local heightPerQuest = 35
+    local bottomMargin = 10
+    local minHeight = 150      -- 最小高度（即使没有任务也保持可见）
+    local maxHeight = 1000     -- 最大高度（防止超出屏幕）
+
+    local calculatedHeight = headerHeight + (numQuests * heightPerQuest) + bottomMargin
+
+    -- 限制在合理范围内
+    calculatedHeight = math.max(calculatedHeight, minHeight)
+    calculatedHeight = math.min(calculatedHeight, maxHeight)
+
+    return calculatedHeight, numQuests
+end
+
+local function AutoResizeTrackerFrame(frame)
+    if not frame or not frame:IsShown() then return end
+
+    local optimalHeight, questCount = CalculateOptimalTrackerHeight()
+
+    -- 动态调整 WatchFrame/ObjectiveTrackerFrame 高度
+    if ObjectiveTrackerFrame then
+        ObjectiveTrackerFrame:SetHeight(optimalHeight)
+    end
+
+    if WatchFrame then
+        WatchFrame:SetHeight(optimalHeight)
+    end
+
+    -- 动态调整 DragonUI 容器框架高度
+    if QuestTrackerModule.questTrackerFrame then
+        QuestTrackerModule.questTrackerFrame:SetHeight(optimalHeight)
+    end
+
+    addon:DebugInfo("QuestTracker", "📏 自动调整高度: %dpx (%d个任务)", optimalHeight, questCount)
+end
+
 -- 在 7.3.5 Legion 中，ObjectiveTrackerFrame 默认折叠只显示少量任务
 -- 强制展开以显示所有追踪的任务
 local function ForceExpandObjectiveTracker()
@@ -90,12 +158,49 @@ local function ForceExpandObjectiveTracker()
         local expandWidth = WATCHFRAME_EXPANDEDWIDTH or 280
         ObjectiveTrackerFrame:SetWidth(expandWidth)
 
+        -- ⚠️ 智能调整：根据任务数量自动计算最优高度
+        local optimalHeight, _ = CalculateOptimalTrackerHeight()
+        ObjectiveTrackerFrame:SetHeight(optimalHeight)
+        ObjectiveTrackerFrame:ClearAllPoints()
+        ObjectiveTrackerFrame:SetPoint("TOPRIGHT", QuestTrackerModule.questTrackerFrame, "TOPRIGHT", 0, 0)
+        ObjectiveTrackerFrame:SetPoint("BOTTOMRIGHT", QuestTrackerModule.questTrackerFrame, "BOTTOMRIGHT", 0, 0)
+
         -- 如果有折叠状态，强制设为展开
         if ObjectiveTrackerFrame.collapsed then
             ObjectiveTrackerFrame.collapsed = false
         end
         if ObjectiveTrackerFrame.isCollapsed then
             ObjectiveTrackerFrame.isCollapsed = false
+        end
+
+        -- ⚠️ 关键修复：增加最大显示任务数量（默认只能显示2个任务）
+        -- 1. 旧版 WatchFrame 变量
+        WATCHFRAME_MAXQUESTS = WATCHFRAME_MAXQUESTS or 25
+        if WATCHFRAME_MAXQUESTS < 25 then
+            WATCHFRAME_MAXQUESTS = 25
+        end
+
+        -- 2. 更旧版的全局变量（原始值通常为5）
+        MAX_WATCHABLE_QUESTS = MAX_WATCHABLE_QUESTS or 25
+        if MAX_WATCHABLE_QUESTS < 25 then
+            MAX_WATCHABLE_QUESTS = 25
+        end
+
+        -- 3. Legion 版本的新限制系统（Constants.QuestWatchConsts.MAX_QUEST_WATCHES）
+        pcall(function()
+            if Constants and Constants.QuestWatchConsts then
+                if Constants.QuestWatchConsts.MAX_QUEST_WATCHES and Constants.QuestWatchConsts.MAX_QUEST_WATCHES < 25 then
+                    Constants.QuestWatchConsts.MAX_QUEST_WATCHES = 25
+                end
+            end
+        end)
+
+        -- ⚠️ 禁用裁剪，确保所有内容可见
+        ObjectiveTrackerFrame:SetClipsChildren(false)
+
+        -- 如果有内容区域或滚动区域，也调整它们
+        if ObjectiveTrackerFrame.contents then
+            ObjectiveTrackerFrame.contents:SetHeight(800)
         end
 
         -- 强制显示所有任务模块
@@ -112,6 +217,30 @@ local function ForceExpandObjectiveTracker()
     local wf = WatchFrame
     if wf then
         wf:SetWidth(WATCHFRAME_EXPANDEDWIDTH or 250)
+
+        -- ⚠️ 智能调整：根据任务数量自动计算最优高度
+        local optimalHeightWF, _ = CalculateOptimalTrackerHeight()
+        wf:SetHeight(optimalHeightWF)
+        wf:ClearAllPoints()
+        if QuestTrackerModule.questTrackerFrame then
+            wf:SetPoint("TOPRIGHT", QuestTrackerModule.questTrackerFrame, "TOPRIGHT", 0, 0)
+            wf:SetPoint("BOTTOMRIGHT", QuestTrackerModule.questTrackerFrame, "BOTTOMRIGHT", 0, 0)
+        end
+
+        -- ⚠️ 关键修复：为旧版 WatchFrame 也设置最大任务数
+        WATCHFRAME_MAXQUESTS = WATCHFRAME_MAXQUESTS or 25
+        if WATCHFRAME_MAXQUESTS < 25 then
+            WATCHFRAME_MAXQUESTS = 25
+        end
+
+        -- 设置旧版全局变量
+        MAX_WATCHABLE_QUESTS = MAX_WATCHABLE_QUESTS or 25
+        if MAX_WATCHABLE_QUESTS < 25 then
+            MAX_WATCHABLE_QUESTS = 25
+        end
+
+        -- ⚠️ 禁用裁剪
+        wf:SetClipsChildren(false)
     end
 end
 
@@ -171,6 +300,9 @@ local function ForceUpdateQuestTracker()
         end
     end)
 
+    -- ⚠️ 智能调整：根据当前任务数量自动调整框架高度
+    AutoResizeTrackerFrame(QuestTrackerModule.questTrackerFrame)
+
     -- 应用 DragonUI 样式（在 pcall 中安全执行，兼容新旧 API）
     pcall(ApplyQuestTrackerStyling)
 end
@@ -209,7 +341,10 @@ function QuestTrackerModule:Initialize()
     -- 修复: 确保 questTrackerFrame 的 parent 是 UIParent，不是 MinimapCluster
     -- 这样它就可以独立于小地图移动
     self.questTrackerFrame = CreateFrame('Frame', 'DragonUI_QuestTrackerFrame', UIParent)
-    self.questTrackerFrame:SetSize(230, 500)
+
+    -- ⚠️ 智能初始化：使用合理的初始高度，后续会根据任务数量自动调整
+    local initialHeight, _ = CalculateOptimalTrackerHeight()
+    self.questTrackerFrame:SetSize(230, initialHeight)
     
     -- 设置frame的基本拖动属性(编辑模式会控制这些)
     self.questTrackerFrame:SetMovable(false) -- 初始状态不可移动
@@ -303,6 +438,33 @@ local function InstallQuestTrackerHooks()
     if not WatchFrame then
         return
     end
+
+    -- ⚠️ 关键修复：在 hook 安装时立即设置所有最大任务数限制变量
+    -- 这样可以确保在游戏加载早期就解除所有限制
+
+    -- 1. 旧版 WatchFrame 变量
+    WATCHFRAME_MAXQUESTS = WATCHFRAME_MAXQUESTS or 25
+    if WATCHFRAME_MAXQUESTS < 25 then
+        WATCHFRAME_MAXQUESTS = 25
+    end
+
+    -- 2. 更旧版的全局变量（原始值通常为5）
+    MAX_WATCHABLE_QUESTS = MAX_WATCHABLE_QUESTS or 25
+    if MAX_WATCHABLE_QUESTS < 25 then
+        MAX_WATCHABLE_QUESTS = 25
+    end
+
+    -- 3. Legion 版本的新限制系统
+    pcall(function()
+        if Constants and Constants.QuestWatchConsts then
+            if Constants.QuestWatchConsts.MAX_QUEST_WATCHES and Constants.QuestWatchConsts.MAX_QUEST_WATCHES < 25 then
+                Constants.QuestWatchConsts.MAX_QUEST_WATCHES = 25
+            end
+        end
+    end)
+
+    addon:DebugInfo("QuestTracker", "✅ 已设置最大任务追踪数量: WATCHFRAME_MAXQUESTS=%d, MAX_WATCHABLE_QUESTS=%d",
+        WATCHFRAME_MAXQUESTS, MAX_WATCHABLE_QUESTS)
 
     -- 确保 QuestObjectiveTracker 在任务变更时刷新（Legion 兼容）
     pcall(function()
