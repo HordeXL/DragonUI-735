@@ -1443,7 +1443,7 @@ local function ApplyWidgetPosition()
         CastbarModule.anchor:SetPoint(anchor, UIParent, anchor, widgetConfig.posX, widgetConfig.posY)
     else
         CastbarModule.anchor:ClearAllPoints()
-        CastbarModule.anchor:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 270)
+        CastbarModule.anchor:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 300)
     end
 end
 
@@ -1451,15 +1451,21 @@ function CastbarModule:LoadDefaultSettings()
     if not addon.db.profile.widgets then
         addon.db.profile.widgets = {}
     end
-    
+
     if not addon.db.profile.widgets.playerCastbar then
         addon.db.profile.widgets.playerCastbar = {
             anchor = "BOTTOM",
             posX = 0,
-            posY = 270
+            posY = 300
         }
+    else
+        local cfg = addon.db.profile.widgets.playerCastbar
+        cfg.posY = cfg.posY or 300
+        if cfg.posY == 270 or cfg.posY == 370 or cfg.posY == 550 then
+            cfg.posY = 300
+        end
     end
-    
+
     if not addon.db.profile.castbar then
         addon.db.profile.castbar = {}
     end
