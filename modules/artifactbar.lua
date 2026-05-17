@@ -7,6 +7,18 @@ local addon = select(2, ...)
 
 local SPELL_POWER_ARTIFACT_POWER = SPELL_POWER_ARTIFACT_POWER or 10
 
+local function FormatLargeNumber(num)
+    if not num or num == 0 then return "0" end
+    num = tonumber(num) or 0
+    if num >= 100000000 then
+        return string.format("%.1f亿", num / 100000000)
+    elseif num >= 10000 then
+        return string.format("%.1f万", num / 10000)
+    else
+        return string.format("%.0f", num)
+    end
+end
+
 -- 缓存最后有效值
 local ArtifactCache = { current = 0, max = 1, name = nil }
 
@@ -118,10 +130,10 @@ if not addon.ArtifactBar then
         GameTooltip:AddLine(" ")
 
         if max > 0 and current < max then
-            self.text:SetText(string.format("神器能量：%.0f/%.0f", current, max))
-            GameTooltip:AddDoubleLine("当前能量", string.format("%.0f / %.0f", current, max), 1, 1, 1, 1, 1, 1)
-            GameTooltip:AddDoubleLine("完成百分比", string.format("%.4f%%", current / max * 100), 1, 1, 1, 1, 1, 1)
-            GameTooltip:AddDoubleLine("升级所需", string.format("%.0f", max - current), 1, 1, 1, 1, 1, 1)
+            self.text:SetText(string.format("神器能量：%s/%s", FormatLargeNumber(current), FormatLargeNumber(max)))
+            GameTooltip:AddDoubleLine("当前能量", string.format("%s / %s", FormatLargeNumber(current), FormatLargeNumber(max)), 1, 1, 1, 1, 1, 1)
+            GameTooltip:AddDoubleLine("完成百分比", string.format("%.2f%%", current / max * 100), 1, 1, 1, 1, 1, 1)
+            GameTooltip:AddDoubleLine("升级所需", FormatLargeNumber(max - current), 1, 1, 1, 1, 1, 1)
         elseif max == 0 then
             self.text:SetText("神器能量：已满级")
             GameTooltip:AddLine("神器已满级", 0, 1, 0)
@@ -171,6 +183,15 @@ end
 -- API
 -- ============================================================================
 
+local function ApplyValuesToBar(bar, current, max)
+    if not bar then return end
+    bar.currentPower = tonumber(current) or 0
+    bar.maxPower = tonumber(max) or 0
+    local displayMax = (tonumber(max) or 0) > 0 and max or 1
+    bar:SetMinMaxValues(0, tonumber(displayMax) or 1)
+    bar:SetValue(tonumber(current) or 0)
+end
+
 function addon.UpdateArtifactBar()
     local bar = addon.ArtifactBar
     if not bar then return end
@@ -181,11 +202,7 @@ function addon.UpdateArtifactBar()
         max = ArtifactCache.max
     end
 
-    bar.currentPower = tonumber(current) or 0
-    bar.maxPower = tonumber(max) or 0
-    local displayMax = (tonumber(max) or 0) > 0 and max or 1
-    bar:SetMinMaxValues(0, tonumber(displayMax) or 1)
-    bar:SetValue(tonumber(current) or 0)
+    ApplyValuesToBar(bar, current, max)
 end
 
 function addon.ShowArtifactBar()
@@ -208,11 +225,7 @@ function addon.ShowArtifactBar()
         max = ArtifactCache.max
     end
 
-    bar.currentPower = tonumber(current) or 0
-    bar.maxPower = tonumber(max) or 0
-    local displayMax = (tonumber(max) or 0) > 0 and max or 1
-    bar:SetMinMaxValues(0, tonumber(displayMax) or 1)
-    bar:SetValue(tonumber(current) or 0)
+    ApplyValuesToBar(bar, current, max)
 
     -- 定位
     bar:ClearAllPoints()
@@ -229,9 +242,6 @@ function addon.ShowArtifactBar()
         scale = addon.db.profile.xprepbar.expbar_scale
     end
 
-    bar:SetSize(526, 10)
-    bar:SetFrameStrata("MEDIUM")
-    bar:SetFrameLevel(2)
     bar:SetScale(scale)
     bar:SetAlpha(1)
     bar:Show()
