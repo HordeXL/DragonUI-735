@@ -178,14 +178,22 @@ function DisableBlizzardModule:DisableBlizzardFrames()
     end
     
     -- 5. 特殊处理：MainMenuBarMaxLevelBar（神器能量条）
-    -- ⚠️ 重要：不在这里禁用！由mainbars.lua的artifactbar容器管理
+    -- ⚠️ 重要：不 KillBlizzardBar，让它存活作为 mainbars.lua 的数据源
+    -- 但视觉上必须隐藏（暴雪的 OnShow 会尝试显示它）
     if MainMenuBarMaxLevelBar then
-        -- 只设置初始状态为隐藏，但保持功能完整
         MainMenuBarMaxLevelBar:Hide()
         MainMenuBarMaxLevelBar:SetAlpha(0)
         MainMenuBarMaxLevelBar:SetFrameLevel(0)
-        -- 不禁用鼠标，允许暴雪的状态驱动正常工作
-        addon:DebugInfo("DisableBlizzard", "✅ MainMenuBarMaxLevelBar已初始化（将由mainbars的artifactbar容器管理）")
+        -- 覆盖 Show() 方法：允许内部逻辑运行但保持视觉隐藏
+        -- 这样 OnShow 脚本能更新 StatusBar 值，但玩家看不到原生条
+        local origShow = MainMenuBarMaxLevelBar.Show
+        MainMenuBarMaxLevelBar.Show = function(self, ...)
+            origShow(self, ...)
+            -- 立即隐藏，防止可见
+            self:Hide()
+            self:SetAlpha(0)
+        end
+        addon:DebugInfo("DisableBlizzard", "✅ MainMenuBarMaxLevelBar保持存活（数据源），Show()覆盖保护已安装")
     end
 
     -- 6. ⭐ NDui参考：额外确保StatusTrackingBarManager被隐藏
@@ -329,7 +337,7 @@ function DisableBlizzardModule:DisableBlizzardFrames()
     -- 执行深层杀死
     KillBlizzardBar(MainMenuExpBar, "MainMenuExpBar")
     KillBlizzardBar(ReputationWatchBar, "ReputationWatchBar")
-    KillBlizzardBar(MainMenuBarMaxLevelBar, "MainMenuBarMaxLevelBar")
+    -- ⚠️ MainMenuBarMaxLevelBar 保持存活，作为神器能量条的数据源供主模块读取
     
     -- 8. ⚡ 全局函数挂钩：拦截暴雪的更新函数
     -- 即使暴雪引擎重新初始化这些条，也会被拦截

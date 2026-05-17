@@ -312,6 +312,10 @@ function addon:RefreshConfig()
         pcall(addon.RefreshRepBarPosition)
     end
 
+    if addon.RefreshArtifactBarPosition then
+        pcall(addon.RefreshArtifactBarPosition)
+    end
+
     if addon.RefreshMinimapTime then
         local success, err = pcall(addon.RefreshMinimapTime);
         if not success then

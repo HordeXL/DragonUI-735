@@ -94,7 +94,8 @@ local function SetupBlizzardToTHooks()
         end)
         
         -- Also hook SetAlpha to prevent alpha changes
-        hooksecurefunc(TargetFrameToT, "SetAlpha", function(alpha)
+        hooksecurefunc(TargetFrameToT, "SetAlpha", function(self, alpha)
+            if type(alpha) ~= "number" then return end
             if alpha > 0 then
                 TargetFrameToT:SetAlpha(0)
             end

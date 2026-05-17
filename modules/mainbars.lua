@@ -145,8 +145,7 @@ local function InitializeMainbars()
         bottombarleft = nil,
         bottombarright = nil,
         repexpbar = nil,
-        reputationbar = nil,  -- 声望条独立容器
-        artifactbar = nil     -- 神器能量条独立容器
+        reputationbar = nil  -- 声望条独立容器
     }
 
     -- Set initial scale and properties
@@ -595,14 +594,14 @@ end
             mainMenuExpBar:SetAlpha(1)
         end
 
-        -- ⚠️ 声望条和神器能量条已在disableblizzard.lua中被彻底禁用
-        -- 这里不再尝试连接它们，让它们保持被杀死状态
+        -- ⚠️ 声望条在disableblizzard.lua中被彻底禁用
+        -- 神器能量条保持存活作为数据源，但由 mainbars 的自定义 ArtifactBar 显示
         if addon.ActionBarFrames.reputationbar then
             addon:DebugInfo("ExpRepBar", "✅ 声望条容器已创建（原生条已禁用）")
         end
         
         if addon.ActionBarFrames.artifactbar then
-            addon:DebugInfo("ExpRepBar", "✅ 神器能量条容器已创建（原生条已禁用）")
+            addon:DebugInfo("ExpRepBar", "✅ 神器能量条容器已创建（数据源：MainMenuBarMaxLevelBar 保持存活）")
         end
     end
 
@@ -770,13 +769,13 @@ end
         end
     end
 
-    -- ⚠️ 声望条和神器能量条已在disableblizzard.lua中被彻底禁用
+    -- ⚠️ 声望条在disableblizzard.lua中被彻底禁用
     -- 相关的SetPoint挂钩已移除
+    -- 神器能量条MainMenuBarMaxLevelBar保持存活，作为ArtifactBar数据源
 
     -- ⚠️ 注意：此函数只处理暴雪UI的装饰纹理
     -- 框架的禁用（事件、脚本等）由 disableblizzard 模块负责
     local function RemoveBlizzardFrames()
-        -- ⚠️ 神器能量条已在disableblizzard.lua中被彻底禁用
         
         -- 隐藏装饰纹理（这些不是框架，只是纹理对象）
         local blizzTextures = {
@@ -824,9 +823,6 @@ end
         
         -- ⭐ 新增：声望条独立容器
         addon.ActionBarFrames.reputationbar = addon.CreateUIFrame(addon.ActionBarFrames.mainbar:GetWidth(), 10, "ReputationBar")
-        
-        -- ⭐ 新增：神器能量条独立容器（职业大厅资源条）
-        addon.ActionBarFrames.artifactbar = addon.CreateUIFrame(addon.ActionBarFrames.mainbar:GetWidth(), 10, "ArtifactBar")
     end
 
     -- Position action bars to their container frames (initialization only - safe during addon load)
@@ -927,11 +923,6 @@ end
             frame = addon.ActionBarFrames.reputationbar,
             config = widgets.reputationbar,
             default = {"BOTTOM", 0, 20}
-        }, -- ⭐ 新增：神器能量条默认位置（独立于经验条和声望条）
-        {
-            frame = addon.ActionBarFrames.artifactbar,
-            config = widgets.artifactbar,
-            default = {"BOTTOM", 0, 15}
         }}
 
         for _, barData in ipairs(barConfigs) do
@@ -988,12 +979,6 @@ end
             frame = addon.ActionBarFrames.reputationbar,
             blizzardFrame = nil, -- ⚠️ 原生声望条已在disableblizzard.lua中被彻底禁用
             configPath = {"widgets", "reputationbar"}
-        }, -- ⚠️ 神器能量条独立容器注册（原生条已禁用）
-        {
-            name = "artifactbar",
-            frame = addon.ActionBarFrames.artifactbar,
-            blizzardFrame = nil, -- ⚠️ 原生神器能量条已在disableblizzard.lua中被彻底禁用
-            configPath = {"widgets", "artifactbar"}
         }}
 
         for _, registration in ipairs(frameRegistrations) do
@@ -1144,16 +1129,13 @@ end
         end
     end
     
-    -- ⚠️ 声望条和神器能量条已在disableblizzard.lua中被彻底禁用
+    -- ⚠️ 声望条已在disableblizzard.lua中被彻底禁用
     addon.RefreshRepBarPosition = function()
         -- 声望条已禁用
     end
-    
-    -- 神器能量条刷新函数
-    addon.RefreshArtifactBarPosition = function()
-        if InCombatLockdown() then return end
-        addon.ShowArtifactBar()
-    end
+
+    -- 神器能量条由独立模块 artifactbar.lua 管理
+    -- addon.RefreshArtifactBarPosition 由 artifactbar.lua 定义
 
     -- Initialize immediately since we're already enabled
     ApplyMainbarsSystem()
@@ -1788,309 +1770,6 @@ _G["TestRepAPI"] = function()
     print(string.format("barMin=%d  barMax=%d  barValue=%d", barMin or 0, barMax or 0, barValue or 0))
     print(string.format("当前等级进度: %d / %d", (barValue or 0) - (barMin or 0), (barMax or 0) - (barMin or 0)))
 end
-
--- ============================================================================
--- 模块级自定义神器能量条（完全独立于经验条和声望条）
--- ============================================================================
-
-local SPELL_POWER_ARTIFACT_POWER = SPELL_POWER_ARTIFACT_POWER or 10
-
-if not addon.ArtifactBar then
-    local bar = CreateFrame("StatusBar", "DragonUIArtifactBar", UIParent)
-    bar:SetSize(526, 10)
-    bar:SetFrameStrata("MEDIUM")
-    bar:SetFrameLevel(1)
-    bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
-    bar:SetStatusBarColor(0.90, 0.55, 0.35, 0.85)
-    bar:Hide()
-
-    local border = bar:CreateTexture(nil, "ARTWORK")
-    border:SetTexture(addon._dir .. "uiexperiencebar")
-    border:SetSize(537, 18)
-    border:SetPoint("CENTER", bar, "CENTER", 0, 0)
-    border:SetTexCoord(1/2048, 572/2048, 1/64, 18/64)
-
-    addon.ArtifactBar = bar
-    addon.ArtifactBarBorder = border
-
-    local text = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    text:SetPoint("CENTER", bar, "CENTER", 0, 0)
-    text:SetJustifyH("CENTER")
-    text:Hide()
-    bar.text = text
-
-    bar:SetScript("OnEnter", function(self)
-        local currentPower = self.currentPower or UnitPower("player", SPELL_POWER_ARTIFACT_POWER) or 0
-        local maxPower = self.maxPower or UnitPowerMax("player", SPELL_POWER_ARTIFACT_POWER) or 1
-
-        if currentPower >= maxPower and maxPower > 0 then
-            self.text:SetText("神器能量：已满级")
-        else
-            self.text:SetText(string.format("神器能量：%d/%d", currentPower, maxPower))
-        end
-        self.text:Show()
-
-        GameTooltip:SetOwner(self, "ANCHOR_BOTTOMRIGHT", 0, 8)
-
-        local hasArtifact = HasArtifactEquipped and HasArtifactEquipped()
-        local artifactName = "未知神器"
-        if C_ArtifactUI and C_ArtifactUI.GetArtifactInfo then
-            local name = select(1, C_ArtifactUI.GetArtifactInfo())
-            if name then artifactName = name end
-        elseif hasArtifact == false then
-            artifactName = "未装备神器"
-        end
-
-        GameTooltip:AddLine(artifactName, 1, 0.82, 0)
-        GameTooltip:AddLine(" ")
-        if currentPower >= maxPower and maxPower > 0 then
-            GameTooltip:AddLine("当前能量: 已达到上限", 0, 1, 0)
-        else
-            GameTooltip:AddDoubleLine("当前能量", string.format("%d / %d", currentPower, maxPower), 1, 1, 1, 1, 1, 1)
-            if maxPower > 0 then
-                GameTooltip:AddDoubleLine("完成百分比", string.format("%.1f%%", currentPower / maxPower * 100), 1, 1, 1, 1, 1, 1)
-                local remaining = maxPower - currentPower
-                if remaining > 0 then
-                    GameTooltip:AddDoubleLine("升级所需", tostring(remaining), 1, 1, 1, 1, 1, 1)
-                else
-                    GameTooltip:AddLine("已达到当前等级上限", 0, 1, 0)
-                end
-            end
-        end
-        if MainMenuBarMaxLevelBar and MainMenuBarMaxLevelBar.Text then
-            local levelText = MainMenuBarMaxLevelBar.Text:GetText()
-            if levelText then
-                GameTooltip:AddLine(" ")
-                GameTooltip:AddLine(levelText, 1, 0.82, 0)
-            end
-        end
-        GameTooltip:Show()
-    end)
-
-    bar:SetScript("OnLeave", function(self)
-        self.text:Hide()
-        GameTooltip:Hide()
-    end)
-end
-
-addon.UpdateArtifactBar = function()
-    local bar = addon.ArtifactBar
-    if not bar then return end
-
-    local currentPower = UnitPower("player", SPELL_POWER_ARTIFACT_POWER) or 0
-    local maxPower = UnitPowerMax("player", SPELL_POWER_ARTIFACT_POWER) or 0
-
-    if maxPower < 1 then
-        local blizzBar = nil
-        if MainMenuBarMaxLevelBar then
-            for i = 1, MainMenuBarMaxLevelBar:GetNumChildren() do
-                local child = select(i, MainMenuBarMaxLevelBar:GetChildren())
-                if child and child.GetObjectType and child:GetObjectType() == "StatusBar" then
-                    blizzBar = child
-                    break
-                end
-            end
-        end
-
-        if blizzBar and blizzBar.GetMinMaxValues then
-            local _, _, barMax = blizzBar:GetMinMaxValues()
-            local barValue = blizzBar:GetValue() or 0
-            if barMax and barMax > 0 then
-                currentPower = barValue
-                maxPower = barMax
-            else
-                maxPower = 1000
-                currentPower = maxPower
-            end
-        else
-            maxPower = 1000
-            currentPower = maxPower
-        end
-    end
-
-    bar:SetMinMaxValues(0, maxPower)
-    bar:SetValue(currentPower)
-
-    bar.currentPower = currentPower
-    bar.maxPower = maxPower
-end
-
-addon.ShowArtifactBar = function()
-    local bar = addon.ArtifactBar
-    if not bar then return end
-
-    local hasArtifact = true
-    if HasArtifactEquipped then
-        hasArtifact = HasArtifactEquipped()
-    end
-    if not hasArtifact then return end
-
-    local ok, err = pcall(function()
-        addon.UpdateArtifactBar()
-
-        local scale = 0.9
-        if addon.db and addon.db.profile and addon.db.profile.xprepbar and addon.db.profile.xprepbar.expbar_scale then
-            scale = addon.db.profile.xprepbar.expbar_scale
-        end
-
-        bar:ClearAllPoints()
-        if addon.ActionBarFrames and addon.ActionBarFrames.artifactbar then
-            bar:SetPoint("CENTER", addon.ActionBarFrames.artifactbar, "CENTER", 0, 0)
-        else
-            bar:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 15)
-        end
-        bar:SetSize(526, 10)
-        bar:SetFrameStrata("MEDIUM")
-        bar:SetFrameLevel(2)
-        bar:SetScale(scale)
-        bar:SetAlpha(1)
-        bar:Show()
-    end)
-
-    if not ok then
-        print("|cffff0000DragonUI ArtifactBar Error:|r " .. tostring(err))
-    else
-        addon:DebugInfo("ArtifactBar", string.format("显示神器能量条 - 能量:%d/%d",
-            bar.currentPower or 0, bar.maxPower or 0))
-    end
-end
-
-addon.HideArtifactBar = function()
-    local bar = addon.ArtifactBar
-    if bar then
-        bar:Hide()
-        bar:SetAlpha(0)
-    end
-end
-
-_G["TestArtifact"] = function()
-    local bar = addon.ArtifactBar
-    if not bar then print("ArtifactBar不存在") return end
-    print(string.format("大小: %.0fx%.0f", bar:GetSize()))
-    print(string.format("父框架: %s", bar:GetParent():GetName() or "无"))
-
-    local playerLevel = UnitLevel("player") or 0
-    local maxLevel = GetMaxPlayerLevel() or 0
-    local currentPower = UnitPower("player", SPELL_POWER_ARTIFACT_POWER) or 0
-    local maxPower = UnitPowerMax("player", SPELL_POWER_ARTIFACT_POWER) or 1
-    local hasArtifact = HasArtifactEquipped and HasArtifactEquipped()
-
-    print("--- 状态检查 ---")
-    print(string.format("玩家等级: %d/%d (满级=%s)", playerLevel, maxLevel,
-        tostring(playerLevel == maxLevel)))
-    print(string.format("装备神器: %s", tostring(hasArtifact)))
-    print(string.format("神器能量: %d / %d", currentPower, maxPower))
-
-    print("--- 调用ShowArtifactBar ---")
-    local ok, err = pcall(addon.ShowArtifactBar)
-    if not ok then
-        print("|cffff0000ShowArtifactBar崩溃:|r " .. tostring(err))
-    else
-        print("ShowArtifactBar执行成功")
-    end
-
-    local minVal, maxVal = bar:GetMinMaxValues()
-    local curVal = bar:GetValue()
-    print("--- StatusBar实际设置 ---")
-    print(string.format("SetMinMaxValues=(%d,%d)", minVal or 0, maxVal or 0))
-    print(string.format("SetValue=%d", curVal or 0))
-    print(string.format("缓存值 currentPower=%d maxPower=%d", bar.currentPower or 0, bar.maxPower or 0))
-
-    local x, y = bar:GetCenter()
-    print(string.format("位置: (%.0f,%.0f) IsShown:%s Alpha:%.2f",
-        x or 0, y or 0, bar:IsShown() and "是" or "否", bar:GetAlpha()))
-end
-
-_G["TestArtifactAPI"] = function()
-    local playerLevel = UnitLevel("player") or 0
-    local maxLevel = GetMaxPlayerLevel() or 0
-    local currentPower = UnitPower("player", SPELL_POWER_ARTIFACT_POWER) or 0
-    local maxPower = UnitPowerMax("player", SPELL_POWER_ARTIFACT_POWER) or 1
-    local hasArtifact = false
-    if HasArtifactEquipped then
-        hasArtifact = HasArtifactEquipped()
-    end
-
-    print("--- 神器API测试 ---")
-    print(string.format("SPELL_POWER_ARTIFACT_POWER = %d", SPELL_POWER_ARTIFACT_POWER))
-    print(string.format("玩家等级: %d / %d", playerLevel, maxLevel))
-    print(string.format("装备神器: %s", tostring(hasArtifact)))
-    print(string.format("当前能量: %d", currentPower))
-    print(string.format("最大能量: %d", maxPower))
-
-    if C_ArtifactUI then
-        if C_ArtifactUI.GetArtifactInfo then
-            local name, _, _, _, _, _, _, _, _, _, _, _ = C_ArtifactUI.GetArtifactInfo()
-            print(string.format("C_ArtifactUI.GetArtifactInfo: name=%s", tostring(name)))
-        else
-            print("C_ArtifactUI.GetArtifactInfo 不存在")
-        end
-    else
-        print("C_ArtifactUI 不存在")
-    end
-
-    if MainMenuBarMaxLevelBar then
-        print(string.format("MainMenuBarMaxLevelBar 类型=%s IsShown=%s Alpha=%.2f",
-            MainMenuBarMaxLevelBar:GetObjectType(),
-            tostring(MainMenuBarMaxLevelBar:IsShown()), MainMenuBarMaxLevelBar:GetAlpha()))
-        if MainMenuBarMaxLevelBar.Text then
-            print(string.format("  Text: %s",
-                tostring(MainMenuBarMaxLevelBar.Text:GetText())))
-        end
-        local numChildren = MainMenuBarMaxLevelBar:GetNumChildren() or 0
-        print(string.format("  子框架数量: %d", numChildren))
-        for i = 1, math.min(numChildren, 10) do
-            local child = select(i, MainMenuBarMaxLevelBar:GetChildren())
-            if child then
-                local objType = "unknown"
-                if child.GetObjectType then objType = child:GetObjectType() end
-                local name = child.GetName and child:GetName() or "无名"
-                local info = string.format("    [%d] %s (类型:%s)", i, name, objType)
-                if objType == "StatusBar" and child.GetMinMaxValues then
-                    local _, _, bMax = child:GetMinMaxValues()
-                    local bVal = child:GetValue() or 0
-                    info = info .. string.format(" 值:%d/%d", bVal, bMax or 0)
-                end
-                print(info)
-            end
-        end
-    else
-        print("MainMenuBarMaxLevelBar 不存在")
-    end
-end
-
-local artifactEventFrame = CreateFrame("Frame")
-artifactEventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-artifactEventFrame:RegisterEvent("UNIT_POWER_UPDATE")
-artifactEventFrame:RegisterEvent("ARTIFACT_XP_UPDATE")
-artifactEventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-artifactEventFrame:RegisterEvent("UPDATE_FACTION")
-artifactEventFrame:SetScript("OnEvent", function(self, event, arg1)
-    if event == "PLAYER_ENTERING_WORLD" then
-        C_Timer.After(0.5, function()
-            addon:DebugInfo("ArtifactBar", "PLAYER_ENTERING_WORLD: 检查神器条显示状态")
-            addon.ShowArtifactBar()
-        end)
-    elseif event == "UNIT_POWER_UPDATE" then
-        if arg1 == "player" then
-            if addon.ArtifactBar and addon.ArtifactBar:IsShown() then
-                addon.UpdateArtifactBar()
-            end
-        end
-    elseif event == "ARTIFACT_XP_UPDATE" then
-        if addon.ArtifactBar and addon.ArtifactBar:IsShown() then
-            addon.UpdateArtifactBar()
-        end
-    elseif event == "ZONE_CHANGED_NEW_AREA" then
-        C_Timer.After(0.3, function()
-            addon.ShowArtifactBar()
-        end)
-    elseif event == "UPDATE_FACTION" then
-        C_Timer.After(0.2, function()
-            addon.ShowArtifactBar()
-        end)
-    end
-end)
 
 -- ============================================================================
 -- ⚠️ 独立初始化：确保经验条容器始终存在（不依赖模块启用状态）
