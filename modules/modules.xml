@@ -25,7 +25,8 @@
     <Script file="auras.lua"/>
     <Script file="BuffFrame.lua"/> 
     <Script file="minimap.lua"/>    
-    <Script file="questtracker.lua"/>   
+    <!-- ⚠️ 禁用DragonUI任务追踪模块，与!KalielsTracker冲突 -->
+    <!-- <Script file="questtracker.lua"/> -->   
  
     <!-- UnitFrames -->
     <Include file="unitframes\unitframes.xml"/>
