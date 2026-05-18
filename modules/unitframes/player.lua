@@ -1436,28 +1436,38 @@ local function SetCombatFlashVisible(visible)
 end
 
 --  FUNCIÓN PARA APLICAR POSICIÓN DESDE WIDGETS (COMO MINIMAP)
+local function IsInOrderHall()
+    return OrderHallCommandBar and OrderHallCommandBar:IsShown()
+end
+
 local function ApplyWidgetPosition()
     -- SEGURO: No modificar frames seguros durante combate
     if InCombatLockdown() then
         return
     end
 
-    local widgetConfig = addon:GetConfigValue("widgets", "player")
-    if not widgetConfig then
-        -- Si no hay widgets config, usar defaults
-        widgetConfig = {
-            anchor = "TOPLEFT",
-            posX = -19,
-            posY = -4
-        }
+    local inOrderHall = IsInOrderHall()
+    local posX, posY
+
+    if inOrderHall then
+        local widgetConfig = addon:GetConfigValue("widgets", "player")
+        if widgetConfig then
+            posX = widgetConfig.posX or 10
+            posY = widgetConfig.posY or -30
+        else
+            posX = 10
+            posY = -30
+        end
+    else
+        posX = -19
+        posY = -4
     end
 
     -- SEGURO: Proteger con pcall
     local success, err = pcall(function()
         --  CLAVE: Posicionar el frame auxiliar
         Module.playerFrame:ClearAllPoints()
-        Module.playerFrame:SetPoint(widgetConfig.anchor or "TOPLEFT", UIParent, widgetConfig.anchor or "TOPLEFT",
-            widgetConfig.posX or -19, widgetConfig.posY or -4)
+        Module.playerFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", posX, posY)
 
         --  CLAVE: Anclar PlayerFrame al auxiliar (sistema RetailUI)
         PlayerFrame:ClearAllPoints()
@@ -1748,6 +1758,16 @@ local function SetupPlayerEvents()
             HideBlizzardPlayerTexts()
             -- Update textSystem unit in case of reload while in vehicle
             UpdateTextSystemUnit()
+        end,
+
+        ZONE_CHANGED_NEW_AREA = function()
+            C_Timer.After(0.5, function()
+                if InCombatLockdown() then
+                    deferredPositionUpdate = true
+                    return
+                end
+                ApplyWidgetPosition()
+            end)
         end,
 
         RUNE_TYPE_UPDATE = function(runeIndex)

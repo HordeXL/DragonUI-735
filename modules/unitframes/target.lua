@@ -18,33 +18,40 @@ local Module = {
 -- ============================================================================
 
 --  FUNCIÓN PARA APLICAR POSICIÓN DESDE WIDGETS (COMO PLAYER.LUA)
+local function IsInOrderHall()
+    return OrderHallCommandBar and OrderHallCommandBar:IsShown()
+end
+
 local function ApplyWidgetPosition()
     if not Module.targetFrame then
         return
     end
 
-    local widgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.target
+    local inOrderHall = IsInOrderHall()
+    local posX, posY
 
-    if widgetConfig then
-        -- Siempre posicionar el anchor frame (custom frame, no protegido en combate)
-        Module.targetFrame:ClearAllPoints()
-        Module.targetFrame:SetPoint(widgetConfig.anchor or "TOPLEFT", UIParent, widgetConfig.anchor or "TOPLEFT",
-                                   widgetConfig.posX or 250, widgetConfig.posY or -4)
-
-        -- No modificar TargetFrame (Blizzard) en combate - se reaplica al salir de combate
-        if not InCombatLockdown() then
-            TargetFrame:ClearAllPoints()
-            TargetFrame:SetPoint("CENTER", Module.targetFrame, "CENTER", 20, -7)
+    if inOrderHall then
+        local widgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.target
+        if widgetConfig then
+            posX = widgetConfig.posX or 230
+            posY = widgetConfig.posY or -30
+        else
+            posX = 230
+            posY = -30
         end
-
     else
-        -- Fallback a posición por defecto
-        Module.targetFrame:ClearAllPoints()
-        Module.targetFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 250, -4)
-        if not InCombatLockdown() then
-            TargetFrame:ClearAllPoints()
-            TargetFrame:SetPoint("CENTER", Module.targetFrame, "CENTER", 0, 0)
-        end
+        posX = 250
+        posY = -4
+    end
+
+    -- Siempre posicionar el anchor frame (custom frame, no protegido en combate)
+    Module.targetFrame:ClearAllPoints()
+    Module.targetFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", posX, posY)
+
+    -- No modificar TargetFrame (Blizzard) en combate - se reaplica al salir de combate
+    if not InCombatLockdown() then
+        TargetFrame:ClearAllPoints()
+        TargetFrame:SetPoint("CENTER", Module.targetFrame, "CENTER", 20, -7)
     end
 end
 
@@ -963,6 +970,14 @@ local function OnEvent(self, event, ...)
                 ReapplyElementPositions()
             end
         end
+
+    elseif event == "ZONE_CHANGED_NEW_AREA" then
+        -- 进入/离开职业大厅时切换位置
+        C_Timer.After(0.5, function()
+            if Module.configured and not InCombatLockdown() then
+                ApplyWidgetPosition()
+            end
+        end)
     end
 
 end
@@ -984,6 +999,8 @@ if not Module.eventsFrame then
     Module.eventsFrame:RegisterEvent("UNIT_PORTRAIT_UPDATE")
     --  EVENTO PARA REAPLICAR POSICIÓN AL SALIR DE COMBATE
     Module.eventsFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    --  EVENTO PARA DETECTAR ENTRADA/SALIDA DE SALA DE ÓRDENES
+    Module.eventsFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     --  EVENTOS CRÍTICOS PARA EL TEXT SYSTEM
     Module.eventsFrame:RegisterEvent("UNIT_HEALTH")
     Module.eventsFrame:RegisterEvent("UNIT_MAXHEALTH") 
