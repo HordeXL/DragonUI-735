@@ -191,27 +191,36 @@ function BuffFrameModule:UpdatePosition()
         return
     end
     
-    -- 初始化widgets配置（如果不存在）
     if not addon.db.profile.widgets then
         addon.db.profile.widgets = {}
     end
     if not addon.db.profile.widgets.buffs then
-        -- AceDB 初始化时已写入默认值，此路径不会触发，但保留为 safety fallback
         addon.db.profile.widgets.buffs = {
             anchor = "TOPRIGHT",
             posX = -250,
-            posY = -30
+            posY = -10
         }
     end
 
     local widgetOptions = addon.db.profile.widgets.buffs
-    dragonUIBuffFrame:ClearAllPoints()
-    dragonUIBuffFrame:SetPoint(widgetOptions.anchor, widgetOptions.posX, widgetOptions.posY)
+    local defaultPosX = widgetOptions.posX or -250
+    local defaultPosY = widgetOptions.posY or -20
+
+    local inOrderHall = OrderHallCommandBar and OrderHallCommandBar:IsShown()
+    if inOrderHall then
+        local barHeight = OrderHallCommandBar:GetHeight() or 0
+        local adjustedPosY = defaultPosY - barHeight
+        dragonUIBuffFrame:ClearAllPoints()
+        dragonUIBuffFrame:SetPoint(widgetOptions.anchor, defaultPosX, adjustedPosY)
+        addon:DebugInfo("BuffFrame", string.format("职业大厅模式 - 资源条高度: %.1f, buff Y偏移: %.1f (默认: %.1f)", barHeight, adjustedPosY, defaultPosY))
+    else
+        dragonUIBuffFrame:ClearAllPoints()
+        dragonUIBuffFrame:SetPoint(widgetOptions.anchor, defaultPosX, defaultPosY)
+        addon:DebugInfo("BuffFrame", string.format("野外模式 - buff复位到默认坐标: (%.1f, %.1f)", defaultPosX, defaultPosY))
+    end
     
-    -- 输出定位后的坐标
     local frameX, frameY = dragonUIBuffFrame:GetCenter()
-    addon:DebugInfo("BuffFrame", string.format("UpdatePosition完成 - dragonUIBuffFrame锚定: %s (%.1f, %.1f), 中心坐标: (%.1f, %.1f)", 
-        widgetOptions.anchor, widgetOptions.posX, widgetOptions.posY, frameX or 0, frameY or 0))
+    addon:DebugInfo("BuffFrame", string.format("UpdatePosition完成 - 中心坐标: (%.1f, %.1f)", frameX or 0, frameY or 0))
 end
 
 --  FUNCIÓN PARA HABILITAR/DESHABILITAR EL MÓDULO
@@ -264,6 +273,8 @@ function BuffFrameModule:Enable()
         buffFrame:RegisterEvent("UNIT_ENTERED_VEHICLE")
         buffFrame:RegisterEvent("UNIT_EXITED_VEHICLE")
         buffFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+        buffFrame:RegisterEvent("ORDER_HALL_LANDING_PAGE_SHOWN")
+        buffFrame:RegisterEvent("ORDER_HALL_LANDING_PAGE_CLOSED")
         
         buffFrame:SetScript("OnEvent", function(self, event, unit)
             if event == "PLAYER_ENTERING_WORLD" then
@@ -287,8 +298,14 @@ function BuffFrameModule:Enable()
                     ShowToggleButtonIf(GetUnitBuffCount("player", 16) > 0)
                 end
             elseif event == "ZONE_CHANGED_NEW_AREA" then
-                --  区域变化时（如进出职业大厅），强制重新应用锚点
                 addon:DebugInfo("BuffFrame", "ZONE_CHANGED_NEW_AREA - 强制重新应用锚点")
+                BuffFrameModule:UpdatePosition()
+                C_Timer.After(0.5, function()
+                    BuffFrameModule:UpdatePosition()
+                end)
+                C_Timer.After(1.0, function()
+                    BuffFrameModule:UpdatePosition()
+                end)
                 if toggleButton and dragonUIBuffFrame then
                     -- 使用 hook 前的原始方法强制设置锚点
                     local origSetPoint = getmetatable(toggleButton).__index.SetPoint
@@ -345,10 +362,35 @@ function BuffFrameModule:Enable()
                         addon:DebugInfo("BuffFrame", "ZONE_CHANGED_NEW_AREA - 延迟重试完成")
                     end, 0.5)
                 end
+            elseif event == "ORDER_HALL_LANDING_PAGE_SHOWN" then
+                C_Timer.After(0.5, function()
+                    BuffFrameModule:UpdatePosition()
+                    C_Timer.After(0.3, function()
+                        BuffFrameModule:UpdatePosition()
+                    end)
+                    C_Timer.After(0.8, function()
+                        BuffFrameModule:UpdatePosition()
+                    end)
+                end)
+            elseif event == "ORDER_HALL_LANDING_PAGE_CLOSED" then
+                C_Timer.After(0.3, function()
+                    BuffFrameModule:UpdatePosition()
+                end)
             end
         end)
     end
-    
+
+    if _G.UIParent_UpdateTopFramePositions and not BuffFrameModule.orderHallHooked then
+        hooksecurefunc("UIParent_UpdateTopFramePositions", function()
+            if not InCombatLockdown() and dragonUIBuffFrame then
+                C_Timer.After(0.1, function()
+                    BuffFrameModule:UpdatePosition()
+                end)
+            end
+        end)
+        BuffFrameModule.orderHallHooked = true
+        addon:DebugInfo("BuffFrame", "已注册 UIParent_UpdateTopFramePositions hook")
+    end
     
 end
 

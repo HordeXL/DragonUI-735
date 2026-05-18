@@ -33,7 +33,7 @@ local defaults = {
             buffs = {
                 anchor = "TOPRIGHT",
                 posX = -250,
-                posY = -30
+                posY = -20
             },
             pet = {
                 anchor = "TOPLEFT",
