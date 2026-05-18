@@ -28,12 +28,12 @@ local MinimapModule = {
     hooks = {},
     stateDrivers = {},
     frames = {},
-    -- Legacy properties for compatibility
     minimapFrame = nil,
     borderFrame = nil,
     isEnabled = false,
     originalMinimapSettings = {},
-    originalMask = nil
+    originalMask = nil,
+    eventsFrame = nil
 }
 addon.MinimapModule = MinimapModule;
 
@@ -1475,27 +1475,46 @@ function MinimapModule:Initialize()
 end
 
 -- Eliminar las funciones que no existen más y convertir en funciones DragonUI
+local function IsInOrderHall()
+    return OrderHallCommandBar and OrderHallCommandBar:IsShown()
+end
+
+function MinimapModule:ApplyPositionByZone()
+    if not self.minimapFrame then return end
+    if InCombatLockdown() then return end
+
+    if IsInOrderHall() then
+        -- 职业大厅：DragonUI 位置（从配置读取或默认）
+        local posX, posY
+        local widgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.minimap
+        if widgetConfig then
+            posX = widgetConfig.posX or -7
+            posY = widgetConfig.posY or 0
+        else
+            posX = addon.db.profile.minimap.x or -7
+            posY = addon.db.profile.minimap.y or 0
+        end
+        self.minimapFrame:ClearAllPoints()
+        self.minimapFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", posX, posY)
+        if MinimapCluster then
+            MinimapCluster:ClearAllPoints()
+            MinimapCluster:SetPoint("CENTER", self.minimapFrame, "CENTER", 0, 0)
+        end
+    else
+        -- 非职业大厅：暴雪 MinimapCluster 原始坐标
+        if MinimapCluster then
+            MinimapCluster:ClearAllPoints()
+            MinimapCluster:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -10, -10)
+        end
+    end
+end
+
 function MinimapModule:UpdateSettings()
     local scale = addon.db.profile.minimap.scale or 1.0
 
     if self.minimapFrame then
-        --  MANEJAR POSICIÓN: Prioridad a widgets (editor mode), fallback a x,y
-        local x, y, anchor
-
-        -- 1. Intentar usar posición del editor mode (widgets)
-        if addon.db.profile.widgets and addon.db.profile.widgets.minimap then
-            local widgetConfig = addon.db.profile.widgets.minimap
-            anchor = widgetConfig.anchor or "TOPRIGHT"
-            x = widgetConfig.posX or 0
-            y = widgetConfig.posY or 0
-
-        else
-            -- 2. Fallback a posición legacy (x, y)
-            x = addon.db.profile.minimap.x or -7
-            y = addon.db.profile.minimap.y or 0
-            anchor = "TOPRIGHT"
-
-        end
+        --  NUEVO: Posición conmuta según zona (职业大厅/野外)
+        self:ApplyPositionByZone()
 
         -- NUEVO: Actualizar posición del DurabilityFrame cuando cambien las configuraciones
         if DurabilityFrame then
@@ -1504,9 +1523,7 @@ function MinimapModule:UpdateSettings()
             DurabilityFrame:SetScale(scale)
         end
         
-        --  APLICAR POSICIÓN
-        self.minimapFrame:ClearAllPoints()
-        self.minimapFrame:SetPoint(anchor, UIParent, anchor, x, y)
+        --  APLICAR ESCALA
 
         --  APLICAR ESCALA (funciona perfecto ahora)
         if MinimapCluster then
@@ -1854,6 +1871,29 @@ initFrame:SetScript("OnEvent", function(self, event, addonName)
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
         MinimapModule:Initialize()
+        -- 保留 eventsFrame 用于区域切换监听
+        if not MinimapModule.eventsFrame then
+            MinimapModule.eventsFrame = CreateFrame("Frame")
+            MinimapModule.eventsFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+            MinimapModule.eventsFrame:RegisterEvent("ORDER_HALL_LANDING_PAGE_CLOSED")
+            MinimapModule.eventsFrame:SetScript("OnEvent", function()
+                C_Timer.After(0.3, function()
+                    if not InCombatLockdown() then
+                        MinimapModule:ApplyPositionByZone()
+                    end
+                end)
+            end)
+            -- Hook 暴雪职业大厅位置更新函数，和玩家/目标框体完全同步
+            if _G.UIParent_UpdateTopFramePositions then
+                hooksecurefunc("UIParent_UpdateTopFramePositions", function()
+                    MinimapModule:ApplyPositionByZone()
+                end)
+            end
+        end
+        -- 初始根据当前区域设置位置
+        C_Timer.After(1.0, function()
+            MinimapModule:ApplyPositionByZone()
+        end)
         self:UnregisterAllEvents()
     end
 end)
