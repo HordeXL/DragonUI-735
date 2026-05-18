@@ -227,9 +227,13 @@ function addon.ShowArtifactBar()
 
     ApplyValuesToBar(bar, current, max)
 
-    -- 定位
+    -- 定位：满级且无监视声望时，自动切换到经验/声望条位置
     bar:ClearAllPoints()
-    local container = addon.ActionBarFrames and addon.ActionBarFrames.artifactbar
+    local playerLevel = UnitLevel("player") or 0
+    local maxLevel = GetMaxPlayerLevel() or 0
+    local factionName = GetWatchedFactionInfo()
+    local containerName = (playerLevel == maxLevel and not factionName) and "repexpbar" or "artifactbar"
+    local container = addon.ActionBarFrames and addon.ActionBarFrames[containerName]
     if container then
         bar:SetPoint("CENTER", container, "CENTER")
     else
