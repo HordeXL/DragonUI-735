@@ -13,12 +13,12 @@ local defaults = {
             player = {
                 anchor = "TOPLEFT",
                 posX = 10,
-                posY = -30
+                posY = -10
             },
             target = {
                 anchor = "TOPLEFT",
                 posX = 230,
-                posY = -30
+                posY = -10
             },
             focus = {
                 anchor = "TOPLEFT",

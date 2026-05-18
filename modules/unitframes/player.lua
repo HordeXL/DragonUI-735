@@ -1441,51 +1441,39 @@ local function IsInOrderHall()
 end
 
 local function ApplyWidgetPosition()
-    -- SEGURO: No modificar frames seguros durante combate
     if InCombatLockdown() then
         return
     end
 
-    local inOrderHall = IsInOrderHall()
-    local posX, posY
+    local widgetConfig = addon:GetConfigValue("widgets", "player")
+    local defaultPosX = (widgetConfig and widgetConfig.posX) or 10
+    local defaultPosY = (widgetConfig and widgetConfig.posY) or -10
+    local posX = defaultPosX
+    local posY = defaultPosY
 
-    if inOrderHall then
-        local widgetConfig = addon:GetConfigValue("widgets", "player")
-        if widgetConfig then
-            posX = widgetConfig.posX or 10
-            posY = widgetConfig.posY or -30
-        else
-            posX = 10
-            posY = -30
-        end
+    if IsInOrderHall() and OrderHallCommandBar then
+        local barHeight = OrderHallCommandBar:GetHeight() or 0
+        posY = defaultPosY - barHeight
+        addon:DebugInfo("PlayerFrame", "职业大厅模式 - 资源条高度: %.1f, Y偏移: %.1f (默认: %.1f)", barHeight, posY, defaultPosY)
     else
-        posX = 29
-        posY = -4
+        addon:DebugInfo("PlayerFrame", "野外模式 - 复位到默认坐标: (%.1f, %.1f)", posX, posY)
     end
 
-    -- SEGURO: Proteger con pcall
     local success, err = pcall(function()
-        --  CLAVE: Posicionar el frame auxiliar
         Module.playerFrame:ClearAllPoints()
         Module.playerFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", posX, posY)
 
-        --  CLAVE: Anclar PlayerFrame al auxiliar (sistema RetailUI)
         PlayerFrame:ClearAllPoints()
 
-        -- Ajustar posición ligeramente según si es vehículo o normal
         local hasVehicleUI = UnitHasVehicleUI("player")
         if hasVehicleUI then
-            -- Posición del vehículo: un poco más arriba-izquierda para alinearse mejor
             PlayerFrame:SetPoint("CENTER", Module.playerFrame, "CENTER", -20, -5)
         else
-            -- Posición normal del player
             PlayerFrame:SetPoint("CENTER", Module.playerFrame, "CENTER", -15, -7)
         end
     end)
 
     if not success then
-        -- Log error silently pero no interrumpir
-        -- print("DragonUI: Error applying widget position:", err)
     end
 end
 

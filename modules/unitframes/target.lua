@@ -27,28 +27,23 @@ local function ApplyWidgetPosition()
         return
     end
 
-    local inOrderHall = IsInOrderHall()
-    local posX, posY
+    local widgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.target
+    local defaultPosX = (widgetConfig and widgetConfig.posX) or 230
+    local defaultPosY = (widgetConfig and widgetConfig.posY) or -10
+    local posX = defaultPosX
+    local posY = defaultPosY
 
-    if inOrderHall then
-        local widgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.target
-        if widgetConfig then
-            posX = widgetConfig.posX or 230
-            posY = widgetConfig.posY or -30
-        else
-            posX = 230
-            posY = -30
-        end
+    if IsInOrderHall() and OrderHallCommandBar then
+        local barHeight = OrderHallCommandBar:GetHeight() or 0
+        posY = defaultPosY - barHeight
+        addon:DebugInfo("TargetFrame", "职业大厅模式 - 资源条高度: %.1f, Y偏移: %.1f (默认: %.1f)", barHeight, posY, defaultPosY)
     else
-        posX = 250
-        posY = -4
+        addon:DebugInfo("TargetFrame", "野外模式 - 复位到默认坐标: (%.1f, %.1f)", posX, posY)
     end
 
-    -- Siempre posicionar el anchor frame (custom frame, no protegido en combate)
     Module.targetFrame:ClearAllPoints()
     Module.targetFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", posX, posY)
 
-    -- No modificar TargetFrame (Blizzard) en combate - se reaplica al salir de combate
     if not InCombatLockdown() then
         TargetFrame:ClearAllPoints()
         TargetFrame:SetPoint("CENTER", Module.targetFrame, "CENTER", 20, -7)
@@ -1058,8 +1053,8 @@ local function ResetFrame()
     end
     addon.db.profile.widgets.target = {
         anchor = "TOPLEFT",
-        posX = 250,
-        posY = -4
+        posX = 230,
+        posY = -10
     }
 
     -- Re-apply position using widgets system
@@ -1103,8 +1098,8 @@ function Module:LoadDefaultSettings()
     end
     addon.db.profile.widgets.target = { 
         anchor = "TOPLEFT", 
-        posX = 250, 
-        posY = -4 
+        posX = 230, 
+        posY = -10 
     }
 end
 
