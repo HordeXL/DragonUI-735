@@ -8,7 +8,7 @@ local defaults = {
             minimap = {
                 anchor = "TOPRIGHT",
                 posX = 0,
-                posY = -20
+                posY = 0
             },
             player = {
                 anchor = "TOPLEFT",
@@ -51,9 +51,9 @@ local defaults = {
                 posY = 300
             },
             garrisonreport = {
-                anchor = "TOPRIGHT",
-                posX = -60,
-                posY = -200
+                anchor = "BOTTOMLEFT",
+                posX = 40,
+                posY = 20
             },
 
             mainbar = {

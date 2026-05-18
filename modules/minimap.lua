@@ -1299,9 +1299,9 @@ function MinimapModule:InitializeMinimapSystem()
 
     if widgetConfig then
         self.minimapFrame:SetPoint(widgetConfig.anchor or "TOPRIGHT", UIParent, widgetConfig.anchor or "TOPRIGHT",
-            widgetConfig.posX or 0, widgetConfig.posY or -20)
+            widgetConfig.posX or 0, widgetConfig.posY or 0)
     else
-        self.minimapFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", 0, -20)
+        self.minimapFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", 0, 0)
     end
 
     self.borderFrame = CreateMinimapBorderFrame(232, 232)
@@ -1318,11 +1318,11 @@ function MinimapModule:InitializeMinimapSystem()
 
     local garrisonWidgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.garrisonreport
     if garrisonWidgetConfig then
-        garrisonFrame:SetPoint(garrisonWidgetConfig.anchor or "TOPRIGHT", self.minimapFrame,
-            garrisonWidgetConfig.anchor or "TOPRIGHT",
-            garrisonWidgetConfig.posX or -60, garrisonWidgetConfig.posY or -200)
+        garrisonFrame:SetPoint(garrisonWidgetConfig.anchor or "BOTTOMLEFT", self.minimapFrame,
+            garrisonWidgetConfig.anchor or "BOTTOMLEFT",
+            garrisonWidgetConfig.posX or 40, garrisonWidgetConfig.posY or 20)
     else
-        garrisonFrame:SetPoint("TOPRIGHT", self.minimapFrame, "TOPRIGHT", -60, -200)
+        garrisonFrame:SetPoint("BOTTOMLEFT", self.minimapFrame, "BOTTOMLEFT", 40, 20)
     end
 
     addon:RegisterEditableFrame({
@@ -1751,7 +1751,7 @@ function MinimapModule:LoadDefaultSettings()
     addon.db.profile.widgets.minimap = {
         anchor = "TOPRIGHT",
         posX = 0,
-        posY = -20
+        posY = 0
     }
 end
 
