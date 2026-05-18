@@ -1483,18 +1483,23 @@ function MinimapModule:ApplyPositionByZone()
     if not self.minimapFrame then return end
     if InCombatLockdown() then return end
 
-    -- 统一使用 canonical 位置（widget config → database.lua 默认值）
     local widgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.minimap
-    local posX, posY
-    if widgetConfig then
-        posX = widgetConfig.posX or 0
-        posY = widgetConfig.posY or -20
+    local defaultPosX = (widgetConfig and widgetConfig.posX) or 0
+    local defaultPosY = (widgetConfig and widgetConfig.posY) or 0
+
+    if IsInOrderHall() and OrderHallCommandBar then
+        local barHeight = OrderHallCommandBar:GetHeight() or 0
+        local adjustedPosY = defaultPosY - barHeight
+
+        self.minimapFrame:ClearAllPoints()
+        self.minimapFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", defaultPosX, adjustedPosY)
+        addon:DebugInfo("Minimap", "职业大厅模式 - 资源条高度: %.1f, 小地图Y偏移: %.1f (默认: %.1f)", barHeight, adjustedPosY, defaultPosY)
     else
-        posX = 0
-        posY = -20
+        self.minimapFrame:ClearAllPoints()
+        self.minimapFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", defaultPosX, defaultPosY)
+        addon:DebugInfo("Minimap", "野外模式 - 小地图复位到默认坐标: (%.1f, %.1f)", defaultPosX, defaultPosY)
     end
-    self.minimapFrame:ClearAllPoints()
-    self.minimapFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", posX, posY)
+
     if MinimapCluster then
         MinimapCluster:ClearAllPoints()
         MinimapCluster:SetPoint("CENTER", self.minimapFrame, "CENTER", 0, 0)
@@ -1868,10 +1873,17 @@ initFrame:SetScript("OnEvent", function(self, event, addonName)
             MinimapModule.eventsFrame = CreateFrame("Frame")
             MinimapModule.eventsFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
             MinimapModule.eventsFrame:RegisterEvent("ORDER_HALL_LANDING_PAGE_CLOSED")
-            MinimapModule.eventsFrame:SetScript("OnEvent", function()
-                C_Timer.After(0.3, function()
+            MinimapModule.eventsFrame:RegisterEvent("ORDER_HALL_LANDING_PAGE_SHOWN")
+            MinimapModule.eventsFrame:SetScript("OnEvent", function(self, event)
+                local delay = (event == "ORDER_HALL_LANDING_PAGE_SHOWN") and 0.5 or 0.3
+                C_Timer.After(delay, function()
                     if not InCombatLockdown() then
                         MinimapModule:ApplyPositionByZone()
+                        if event == "ORDER_HALL_LANDING_PAGE_SHOWN" then
+                            C_Timer.After(0.3, function()
+                                MinimapModule:ApplyPositionByZone()
+                            end)
+                        end
                     end
                 end)
             end)
