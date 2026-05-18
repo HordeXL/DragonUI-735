@@ -1295,14 +1295,13 @@ function MinimapModule:InitializeMinimapSystem()
         module = self
     })
 
-    local defaultX, defaultY = -7, 0
     local widgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.minimap
 
     if widgetConfig then
         self.minimapFrame:SetPoint(widgetConfig.anchor or "TOPRIGHT", UIParent, widgetConfig.anchor or "TOPRIGHT",
-            widgetConfig.posX or defaultX, widgetConfig.posY or defaultY)
+            widgetConfig.posX or 0, widgetConfig.posY or -20)
     else
-        self.minimapFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", defaultX, defaultY)
+        self.minimapFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", 0, -20)
     end
 
     self.borderFrame = CreateMinimapBorderFrame(232, 232)
@@ -1483,29 +1482,21 @@ function MinimapModule:ApplyPositionByZone()
     if not self.minimapFrame then return end
     if InCombatLockdown() then return end
 
-    if IsInOrderHall() then
-        -- 职业大厅：DragonUI 位置（从配置读取或默认）
-        local posX, posY
-        local widgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.minimap
-        if widgetConfig then
-            posX = widgetConfig.posX or -7
-            posY = widgetConfig.posY or 0
-        else
-            posX = addon.db.profile.minimap.x or -7
-            posY = addon.db.profile.minimap.y or 0
-        end
-        self.minimapFrame:ClearAllPoints()
-        self.minimapFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", posX, posY)
-        if MinimapCluster then
-            MinimapCluster:ClearAllPoints()
-            MinimapCluster:SetPoint("CENTER", self.minimapFrame, "CENTER", 0, 0)
-        end
+    -- 统一使用 canonical 位置（widget config → database.lua 默认值）
+    local widgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.minimap
+    local posX, posY
+    if widgetConfig then
+        posX = widgetConfig.posX or 0
+        posY = widgetConfig.posY or -20
     else
-        -- 非职业大厅：暴雪 MinimapCluster 原始坐标
-        if MinimapCluster then
-            MinimapCluster:ClearAllPoints()
-            MinimapCluster:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -10, -10)
-        end
+        posX = 0
+        posY = -20
+    end
+    self.minimapFrame:ClearAllPoints()
+    self.minimapFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", posX, posY)
+    if MinimapCluster then
+        MinimapCluster:ClearAllPoints()
+        MinimapCluster:SetPoint("CENTER", self.minimapFrame, "CENTER", 0, 0)
     end
 end
 
@@ -1759,7 +1750,7 @@ function MinimapModule:LoadDefaultSettings()
     addon.db.profile.widgets.minimap = {
         anchor = "TOPRIGHT",
         posX = 0,
-        posY = 0
+        posY = -20
     }
 end
 

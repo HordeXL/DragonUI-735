@@ -14,6 +14,11 @@ local buffFrame = nil
 local toggleButton = nil
 local dragonUIBuffFrame = nil  --  NUESTRO FRAME CUSTOM COMO RETAILUI
 
+--  Asegurar que addon._noop existe
+if not addon._noop then
+    addon._noop = function() return end
+end
+
 --  FUNCIÓN PARA REEMPLAZAR BUFFFRAME (IGUAL QUE RETAILUI)
 local function ReplaceBlizzardFrame(frame)
     -- 让暴雪BuffFrame成为dragonUIBuffFrame的子框架，并锚定到左上角
@@ -93,6 +98,68 @@ local function ReplaceBlizzardFrame(frame)
         consolidatedBuffFrame:SetUserPlaced(true)
         consolidatedBuffFrame:ClearAllPoints()
         consolidatedBuffFrame:SetPoint("LEFT", toggleButton, "LEFT", -6, 0)
+        
+        --  Hook SetPoint to prevent external modifications
+        local origConsolidatedSetPoint = consolidatedBuffFrame.SetPoint
+        consolidatedBuffFrame.SetPoint = function(self, ...)
+            -- Allow internal calls but block external ones
+            local point, relativeTo = ...
+            if relativeTo == toggleButton then
+                return origConsolidatedSetPoint(self, ...)
+            end
+            addon:DebugInfo("BuffFrame", "Blocked ConsolidatedBuffs.SetPoint call")
+        end
+    end
+
+    --  阻止暴雪代码在进出职业大厅时将 BuffFrame 重定父级回 UIParent
+    --  和 vehicle.lua 的车辆座位指示器处理方法一致
+    BuffFrame.SetParent = addon._noop
+
+    --  同时阻止暴雪修改 BuffFrame 的锚点
+    --  进出职业大厅时暴雪会尝试重新锚定 BuffFrame，导致 Buff 图标偏移到折叠按钮右侧
+    local origBuffSetPoint = BuffFrame.SetPoint
+    BuffFrame.SetPoint = function(self, ...)
+        local arg1 = ...
+        -- 允许无参调用（安全）和相对于 dragonUIBuffFrame 的锚点设置
+        if arg1 == nil or arg1 == "TOPLEFT" then
+            local _, relativeTo = ...
+            if relativeTo == nil or relativeTo == dragonUIBuffFrame then
+                return origBuffSetPoint(self, ...)
+            end
+        end
+        addon:DebugInfo("BuffFrame", string.format("Blocked BuffFrame.SetPoint - args: %s", tostring(arg1)))
+    end
+
+    BuffFrame.ClearAllPoints = function(self)
+        addon:DebugInfo("BuffFrame", "Blocked BuffFrame.ClearAllPoints")
+        -- Don't allow clearing points, keep original anchor
+    end
+    
+    --  Hook toggleButton methods to maintain correct positioning
+    local origToggleSetPoint = toggleButton.SetPoint
+    local origToggleClearAllPoints = toggleButton.ClearAllPoints
+    local origToggleSetParent = toggleButton.SetParent
+    
+    toggleButton.SetParent = function(self, parent)
+        -- Only allow UIParent as parent (initial setup)
+        if parent == UIParent then
+            return origToggleSetParent(self, parent)
+        end
+        addon:DebugInfo("BuffFrame", "Blocked toggleButton.SetParent call")
+    end
+    
+    toggleButton.SetPoint = function(self, ...)
+        local point, relativeTo = ...
+        -- Only allow setting point relative to dragonUIBuffFrame
+        if relativeTo == frame or relativeTo == dragonUIBuffFrame then
+            return origToggleSetPoint(self, ...)
+        end
+        addon:DebugInfo("BuffFrame", string.format("Blocked toggleButton.SetPoint call - point: %s, relativeTo: %s", tostring(point), tostring(relativeTo)))
+    end
+    
+    toggleButton.ClearAllPoints = function(self)
+        addon:DebugInfo("BuffFrame", "Blocked toggleButton.ClearAllPoints call")
+        -- Don't allow clearing points, keep original anchor
     end
 end
 
@@ -129,15 +196,14 @@ function BuffFrameModule:UpdatePosition()
         addon.db.profile.widgets = {}
     end
     if not addon.db.profile.widgets.buffs then
-        -- 使用database.lua中的默认值
+        -- AceDB 初始化时已写入默认值，此路径不会触发，但保留为 safety fallback
         addon.db.profile.widgets.buffs = {
             anchor = "TOPRIGHT",
             posX = -250,
             posY = -30
         }
-        addon:DebugInfo("BuffFrame", "初始化widgets.buffs配置为默认值")
     end
-    
+
     local widgetOptions = addon.db.profile.widgets.buffs
     dragonUIBuffFrame:ClearAllPoints()
     dragonUIBuffFrame:SetPoint(widgetOptions.anchor, widgetOptions.posX, widgetOptions.posY)
@@ -186,7 +252,10 @@ function BuffFrameModule:Enable()
         end,
         module = self
     })
-    
+
+    --  POSICIONAR INMEDIATAMENTE (no esperar PLAYER_ENTERING_WORLD)
+    BuffFrameModule:UpdatePosition()
+
     --  CONFIGURAR EVENTOS (IGUAL QUE RETAILUI)
     if not buffFrame then
         buffFrame = CreateFrame("Frame")
@@ -194,6 +263,7 @@ function BuffFrameModule:Enable()
         buffFrame:RegisterEvent("UNIT_AURA")
         buffFrame:RegisterEvent("UNIT_ENTERED_VEHICLE")
         buffFrame:RegisterEvent("UNIT_EXITED_VEHICLE")
+        buffFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
         
         buffFrame:SetScript("OnEvent", function(self, event, unit)
             if event == "PLAYER_ENTERING_WORLD" then
@@ -215,6 +285,65 @@ function BuffFrameModule:Enable()
             elseif event == "UNIT_EXITED_VEHICLE" then
                 if unit == 'player' then
                     ShowToggleButtonIf(GetUnitBuffCount("player", 16) > 0)
+                end
+            elseif event == "ZONE_CHANGED_NEW_AREA" then
+                --  区域变化时（如进出职业大厅），强制重新应用锚点
+                addon:DebugInfo("BuffFrame", "ZONE_CHANGED_NEW_AREA - 强制重新应用锚点")
+                if toggleButton and dragonUIBuffFrame then
+                    -- 使用 hook 前的原始方法强制设置锚点
+                    local origSetPoint = getmetatable(toggleButton).__index.SetPoint
+                    local origClearAllPoints = getmetatable(toggleButton).__index.ClearAllPoints
+                    
+                    origClearAllPoints(toggleButton)
+                    origSetPoint(toggleButton, "LEFT", dragonUIBuffFrame, "RIGHT", 3, 0)
+                    addon:DebugInfo("BuffFrame", "toggleButton 锚点已强制重新应用")
+
+                    -- 重新设置 ConsolidatedBuffs 的锚点
+                    if ConsolidatedBuffs then
+                        local origConsolidatedSetPoint = getmetatable(ConsolidatedBuffs).__index.SetPoint
+                        local origConsolidatedClearAllPoints = getmetatable(ConsolidatedBuffs).__index.ClearAllPoints
+
+                        origConsolidatedClearAllPoints(ConsolidatedBuffs)
+                        origConsolidatedSetPoint(ConsolidatedBuffs, "LEFT", toggleButton, "LEFT", -6, 0)
+                        addon:DebugInfo("BuffFrame", "ConsolidatedBuffs 锚点已强制重新应用")
+                    end
+
+                    -- 重新设置 BuffFrame 锚点到 dragonUIBuffFrame 左上角
+                    -- 暴雪在区域切换时会修改 BuffFrame 的锚点，导致 Buff 图标偏移
+                    local origBuffSetPoint = getmetatable(BuffFrame).__index.SetPoint
+                    local origBuffClearAllPoints = getmetatable(BuffFrame).__index.ClearAllPoints
+
+                    origBuffClearAllPoints(BuffFrame)
+                    origBuffSetPoint(BuffFrame, "TOPLEFT", dragonUIBuffFrame, "TOPLEFT", 0, 0)
+                    addon:DebugInfo("BuffFrame", "BuffFrame 锚点已强制重新应用到 dragonUIBuffFrame 左上角")
+
+                    -- 延迟重试，防止暴雪的异步布局更新覆盖我们的设置
+                    addon.core:ScheduleTimer(function()
+                        if not toggleButton or not dragonUIBuffFrame then return end
+                        addon:DebugInfo("BuffFrame", "ZONE_CHANGED_NEW_AREA - 延迟重试重新应用锚点")
+
+                        -- 重新应用 toggleButton 锚点
+                        local tOrigSetPoint = getmetatable(toggleButton).__index.SetPoint
+                        local tOrigClearAllPoints = getmetatable(toggleButton).__index.ClearAllPoints
+                        tOrigClearAllPoints(toggleButton)
+                        tOrigSetPoint(toggleButton, "LEFT", dragonUIBuffFrame, "RIGHT", 3, 0)
+
+                        -- 重新应用 BuffFrame 锚点
+                        local bfOrigSetPoint = getmetatable(BuffFrame).__index.SetPoint
+                        local bfOrigClearAllPoints = getmetatable(BuffFrame).__index.ClearAllPoints
+                        bfOrigClearAllPoints(BuffFrame)
+                        bfOrigSetPoint(BuffFrame, "TOPLEFT", dragonUIBuffFrame, "TOPLEFT", 0, 0)
+
+                        -- 重新应用 ConsolidatedBuffs 锚点
+                        if ConsolidatedBuffs then
+                            local cbOrigSetPoint = getmetatable(ConsolidatedBuffs).__index.SetPoint
+                            local cbOrigClearAllPoints = getmetatable(ConsolidatedBuffs).__index.ClearAllPoints
+                            cbOrigClearAllPoints(ConsolidatedBuffs)
+                            cbOrigSetPoint(ConsolidatedBuffs, "LEFT", toggleButton, "LEFT", -6, 0)
+                        end
+
+                        addon:DebugInfo("BuffFrame", "ZONE_CHANGED_NEW_AREA - 延迟重试完成")
+                    end, 0.5)
                 end
             end
         end)
