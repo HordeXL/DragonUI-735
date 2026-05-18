@@ -1459,7 +1459,7 @@ local function ApplyWidgetPosition()
             posY = -30
         end
     else
-        posX = -19
+        posX = 29
         posY = -4
     end
 
