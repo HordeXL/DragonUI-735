@@ -28,7 +28,7 @@ local function ApplyWidgetPosition()
     end
 
     local widgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.target
-    local defaultPosX = (widgetConfig and widgetConfig.posX) or 230
+    local defaultPosX = (widgetConfig and widgetConfig.posX) or 240
     local defaultPosY = (widgetConfig and widgetConfig.posY) or -10
     local posX = defaultPosX
     local posY = defaultPosY
@@ -1053,7 +1053,7 @@ local function ResetFrame()
     end
     addon.db.profile.widgets.target = {
         anchor = "TOPLEFT",
-        posX = 230,
+        posX = 240,
         posY = -10
     }
 
@@ -1098,7 +1098,7 @@ function Module:LoadDefaultSettings()
     end
     addon.db.profile.widgets.target = { 
         anchor = "TOPLEFT", 
-        posX = 230, 
+        posX = 240, 
         posY = -10 
     }
 end

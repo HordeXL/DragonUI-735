@@ -1446,7 +1446,7 @@ local function ApplyWidgetPosition()
     end
 
     local widgetConfig = addon:GetConfigValue("widgets", "player")
-    local defaultPosX = (widgetConfig and widgetConfig.posX) or 10
+    local defaultPosX = (widgetConfig and widgetConfig.posX) or 20
     local defaultPosY = (widgetConfig and widgetConfig.posY) or -10
     local posX = defaultPosX
     local posY = defaultPosY
