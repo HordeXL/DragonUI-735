@@ -274,6 +274,7 @@ do
     f:RegisterEvent("ARTIFACT_UPDATE")
     f:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     f:RegisterEvent("UPDATE_FACTION")
+    f:RegisterEvent("UNIT_INVENTORY_CHANGED")
     -- OnUpdate 重试帧（每 2 秒检查一次，最多 30 次 = 60 秒）
     local retryFrame
     local retryElapsed = 0
@@ -323,6 +324,10 @@ do
             C_Timer.After(1, addon.ShowArtifactBar)
         elseif event == "UPDATE_FACTION" then
             C_Timer.After(0.5, addon.ShowArtifactBar)
+        elseif event == "UNIT_INVENTORY_CHANGED" then
+            if arg1 == "player" then
+                C_Timer.After(0.5, addon.ShowArtifactBar)
+            end
         end
     end)
 end
