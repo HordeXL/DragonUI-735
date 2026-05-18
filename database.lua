@@ -52,8 +52,8 @@ local defaults = {
             },
             garrisonreport = {
                 anchor = "TOPRIGHT",
-                posX = -50,
-                posY = -190
+                posX = -60,
+                posY = -200
             },
 
             mainbar = {
