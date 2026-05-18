@@ -1314,14 +1314,15 @@ function MinimapModule:InitializeMinimapSystem()
     -- GARRISON / ORDER HALL REPORT BUTTON - MOVABLE
     -- =================================================================
     local garrisonFrame = CreateUIFrame(40, 40, "GarrisonReportFrame")
+    garrisonFrame:SetParent(self.minimapFrame)  -- 跟随小地图移动
 
     local garrisonWidgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.garrisonreport
     if garrisonWidgetConfig then
-        garrisonFrame:SetPoint(garrisonWidgetConfig.anchor or "TOPRIGHT", UIParent,
+        garrisonFrame:SetPoint(garrisonWidgetConfig.anchor or "TOPRIGHT", self.minimapFrame,
             garrisonWidgetConfig.anchor or "TOPRIGHT",
-            garrisonWidgetConfig.posX or 0, garrisonWidgetConfig.posY or 0)
+            garrisonWidgetConfig.posX or -60, garrisonWidgetConfig.posY or -160)
     else
-        garrisonFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -60, -180)
+        garrisonFrame:SetPoint("TOPRIGHT", self.minimapFrame, "TOPRIGHT", -60, -160)
     end
 
     addon:RegisterEditableFrame({
