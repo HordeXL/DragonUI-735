@@ -207,7 +207,18 @@ function BuffFrameModule:UpdatePosition()
     local defaultPosY = widgetOptions.posY or -20
 
     local inOrderHall = OrderHallCommandBar and OrderHallCommandBar:IsShown()
-    if inOrderHall then
+
+    local function ShouldShiftForOrderHall(frame, anchor, posY)
+        if not inOrderHall then return false end
+        local screenHeight = UIParent:GetHeight()
+        local _, frameHeight = frame:GetSize()
+        local barHeight = OrderHallCommandBar:GetHeight() or 0
+        local frameTop = screenHeight + posY
+        local barBottom = screenHeight - barHeight
+        return (barBottom - frameTop) < 0
+    end
+
+    if ShouldShiftForOrderHall(dragonUIBuffFrame, widgetOptions.anchor, defaultPosY) then
         local barHeight = OrderHallCommandBar:GetHeight() or 0
         local adjustedPosY = defaultPosY - barHeight
         dragonUIBuffFrame:ClearAllPoints()

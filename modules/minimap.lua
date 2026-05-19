@@ -1479,6 +1479,16 @@ local function IsInOrderHall()
     return OrderHallCommandBar and OrderHallCommandBar:IsShown()
 end
 
+local function ShouldShiftForOrderHall(frame, anchor, posY)
+    if not IsInOrderHall() then return false end
+    local screenHeight = UIParent:GetHeight()
+    local _, frameHeight = frame:GetSize()
+    local barHeight = OrderHallCommandBar:GetHeight() or 0
+    local frameTop = screenHeight + posY
+    local barBottom = screenHeight - barHeight
+    return (barBottom - frameTop) < 0
+end
+
 function MinimapModule:ApplyPositionByZone()
     if not self.minimapFrame then return end
     if InCombatLockdown() then return end
@@ -1488,8 +1498,7 @@ function MinimapModule:ApplyPositionByZone()
     local posX = (widgetConfig and widgetConfig.posX) or 0
     local posY = (widgetConfig and widgetConfig.posY) or 0
 
-    -- 只有未经过用户手动拖动时，才在职业大厅自动下移
-    if not (widgetConfig and widgetConfig.edited) and IsInOrderHall() and OrderHallCommandBar then
+    if not (widgetConfig and widgetConfig.edited) and ShouldShiftForOrderHall(self.minimapFrame, savedAnchor, posY) then
         local barHeight = OrderHallCommandBar:GetHeight() or 0
         posY = posY - barHeight
         addon:DebugInfo("Minimap", "职业大厅模式 - 自动下移: %.1f (原始: %.1f)", posY, (widgetConfig and widgetConfig.posY) or 0)
