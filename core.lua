@@ -384,15 +384,15 @@ function CreateUIFrame(width, height, frameName)
     end)
     frame:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
-        
+
         --  AUTO-SAVE: Buscar este frame en EditableFrames y guardar posición automáticamente
         for frameName, frameData in pairs(addon.EditableFrames) do
             if frameData.frame == self then
-                -- Guardar posición automáticamente
+                -- Guardar posición automáticamente (isUserDrag=true → 标记edited禁用职业大厅补偿)
                 if #frameData.configPath == 2 then
-                    SaveUIFramePosition(frameData.frame, frameData.configPath[1], frameData.configPath[2])
+                    SaveUIFramePosition(frameData.frame, frameData.configPath[1], frameData.configPath[2], true)
                 else
-                    SaveUIFramePosition(frameData.frame, frameData.configPath[1])
+                    SaveUIFramePosition(frameData.frame, frameData.configPath[1], nil, true)
                 end
                 break
             end
@@ -470,7 +470,7 @@ function HideUIFrame(frame, exclude)
     end
 end
 
-function SaveUIFramePosition(frame, configPath1, configPath2)
+function SaveUIFramePosition(frame, configPath1, configPath2, isUserDrag)
     if not frame then
 
         return
@@ -491,11 +491,13 @@ function SaveUIFramePosition(frame, configPath1, configPath2)
             addon.db.profile[configPath1][configPath2] = {}
         end
 
-        -- 修复：保留表中已有的额外字段（如自定义字段），只覆盖核心位置字段
         local config = addon.db.profile[configPath1][configPath2]
         config.anchor = anchor or "CENTER"
         config.posX = posX or 0
         config.posY = posY or 0
+        if isUserDrag then
+            config.edited = true -- 标记为用户手动拖动，禁用职业大厅自动下移
+        end
 
 
     else
@@ -513,6 +515,9 @@ function SaveUIFramePosition(frame, configPath1, configPath2)
         addon.db.profile.widgets[widgetName].anchor = anchor or "CENTER"
         addon.db.profile.widgets[widgetName].posX = posX or 0
         addon.db.profile.widgets[widgetName].posY = posY or 0
+        if isUserDrag then
+            addon.db.profile.widgets[widgetName].edited = true -- 标记为用户手动拖动
+        end
 
 
     end

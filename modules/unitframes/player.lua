@@ -1435,7 +1435,6 @@ local function SetCombatFlashVisible(visible)
     SetEliteCombatFlashVisible(visible) -- Use unified system
 end
 
---  FUNCIÓN PARA APLICAR POSICIÓN DESDE WIDGETS (COMO MINIMAP)
 local function IsInOrderHall()
     return OrderHallCommandBar and OrderHallCommandBar:IsShown()
 end
@@ -1446,23 +1445,21 @@ local function ApplyWidgetPosition()
     end
 
     local widgetConfig = addon:GetConfigValue("widgets", "player")
-    local defaultPosX = (widgetConfig and widgetConfig.posX) or 20
-    local defaultPosY = (widgetConfig and widgetConfig.posY) or -10
     local savedAnchor = (widgetConfig and widgetConfig.anchor) or "TOPLEFT"
-    local posX = defaultPosX
-    local posY = defaultPosY
+    local posX = (widgetConfig and widgetConfig.posX) or 20
+    local posY = (widgetConfig and widgetConfig.posY) or -10
 
-    if IsInOrderHall() and OrderHallCommandBar then
+    -- 只有未经过用户手动拖动时，才在职业大厅自动下移
+    if not (widgetConfig and widgetConfig.edited) and IsInOrderHall() and OrderHallCommandBar then
         local barHeight = OrderHallCommandBar:GetHeight() or 0
-        posY = defaultPosY - barHeight
-        addon:DebugInfo("PlayerFrame", "职业大厅模式 - 资源条高度: %.1f, Y偏移: %.1f (默认: %.1f)", barHeight, posY, defaultPosY)
+        posY = posY - barHeight
+        addon:DebugInfo("PlayerFrame", "职业大厅模式 - 自动下移: %.1f (原始: %.1f)", posY, (widgetConfig and widgetConfig.posY) or -10)
     else
-        addon:DebugInfo("PlayerFrame", "野外模式 - 复位到默认坐标: anchor=%s (%.1f, %.1f)", savedAnchor, posX, posY)
+        addon:DebugInfo("PlayerFrame", "应用位置: anchor=%s (%.1f, %.1f)", savedAnchor, posX, posY)
     end
 
     local success, err = pcall(function()
         Module.playerFrame:ClearAllPoints()
-        -- 使用保存的锚点而非硬编码"TOPLEFT"，避免拖动后锚点类型变化导致位置偏移
         Module.playerFrame:SetPoint(savedAnchor, UIParent, savedAnchor, posX, posY)
 
         PlayerFrame:ClearAllPoints()

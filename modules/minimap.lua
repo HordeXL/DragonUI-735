@@ -1485,23 +1485,20 @@ function MinimapModule:ApplyPositionByZone()
 
     local widgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.minimap
     local savedAnchor = (widgetConfig and widgetConfig.anchor) or "TOPRIGHT"
-    local defaultPosX = (widgetConfig and widgetConfig.posX) or 0
-    local defaultPosY = (widgetConfig and widgetConfig.posY) or 0
+    local posX = (widgetConfig and widgetConfig.posX) or 0
+    local posY = (widgetConfig and widgetConfig.posY) or 0
 
-    if IsInOrderHall() and OrderHallCommandBar then
+    -- 只有未经过用户手动拖动时，才在职业大厅自动下移
+    if not (widgetConfig and widgetConfig.edited) and IsInOrderHall() and OrderHallCommandBar then
         local barHeight = OrderHallCommandBar:GetHeight() or 0
-        local adjustedPosY = defaultPosY - barHeight
-
-        self.minimapFrame:ClearAllPoints()
-        -- 使用保存的锚点而非硬编码"TOPRIGHT"，StopMovingOrSizing可能改变锚点类型
-        self.minimapFrame:SetPoint(savedAnchor, UIParent, savedAnchor, defaultPosX, adjustedPosY)
-        addon:DebugInfo("Minimap", "职业大厅模式 - 资源条高度: %.1f, 小地图Y偏移: %.1f (默认: %.1f), anchor=%s", barHeight, adjustedPosY, defaultPosY, savedAnchor)
+        posY = posY - barHeight
+        addon:DebugInfo("Minimap", "职业大厅模式 - 自动下移: %.1f (原始: %.1f)", posY, (widgetConfig and widgetConfig.posY) or 0)
     else
-        self.minimapFrame:ClearAllPoints()
-        -- 使用保存的锚点而非硬编码"TOPRIGHT"，StopMovingOrSizing可能改变锚点类型
-        self.minimapFrame:SetPoint(savedAnchor, UIParent, savedAnchor, defaultPosX, defaultPosY)
-        addon:DebugInfo("Minimap", "野外模式 - 小地图复位到默认坐标: anchor=%s (%.1f, %.1f)", savedAnchor, defaultPosX, defaultPosY)
+        addon:DebugInfo("Minimap", "应用位置: anchor=%s (%.1f, %.1f)", savedAnchor, posX, posY)
     end
+
+    self.minimapFrame:ClearAllPoints()
+    self.minimapFrame:SetPoint(savedAnchor, UIParent, savedAnchor, posX, posY)
 
     if MinimapCluster then
         MinimapCluster:ClearAllPoints()
