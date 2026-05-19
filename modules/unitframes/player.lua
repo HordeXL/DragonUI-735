@@ -1448,6 +1448,7 @@ local function ApplyWidgetPosition()
     local widgetConfig = addon:GetConfigValue("widgets", "player")
     local defaultPosX = (widgetConfig and widgetConfig.posX) or 20
     local defaultPosY = (widgetConfig and widgetConfig.posY) or -10
+    local savedAnchor = (widgetConfig and widgetConfig.anchor) or "TOPLEFT"
     local posX = defaultPosX
     local posY = defaultPosY
 
@@ -1456,12 +1457,13 @@ local function ApplyWidgetPosition()
         posY = defaultPosY - barHeight
         addon:DebugInfo("PlayerFrame", "职业大厅模式 - 资源条高度: %.1f, Y偏移: %.1f (默认: %.1f)", barHeight, posY, defaultPosY)
     else
-        addon:DebugInfo("PlayerFrame", "野外模式 - 复位到默认坐标: (%.1f, %.1f)", posX, posY)
+        addon:DebugInfo("PlayerFrame", "野外模式 - 复位到默认坐标: anchor=%s (%.1f, %.1f)", savedAnchor, posX, posY)
     end
 
     local success, err = pcall(function()
         Module.playerFrame:ClearAllPoints()
-        Module.playerFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", posX, posY)
+        -- 使用保存的锚点而非硬编码"TOPLEFT"，避免拖动后锚点类型变化导致位置偏移
+        Module.playerFrame:SetPoint(savedAnchor, UIParent, savedAnchor, posX, posY)
 
         PlayerFrame:ClearAllPoints()
 
@@ -1474,6 +1476,7 @@ local function ApplyWidgetPosition()
     end)
 
     if not success then
+        addon:DebugError("PlayerFrame", "ApplyWidgetPosition 失败: %s", tostring(err))
     end
 end
 

@@ -1484,6 +1484,7 @@ function MinimapModule:ApplyPositionByZone()
     if InCombatLockdown() then return end
 
     local widgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.minimap
+    local savedAnchor = (widgetConfig and widgetConfig.anchor) or "TOPRIGHT"
     local defaultPosX = (widgetConfig and widgetConfig.posX) or 0
     local defaultPosY = (widgetConfig and widgetConfig.posY) or 0
 
@@ -1492,12 +1493,14 @@ function MinimapModule:ApplyPositionByZone()
         local adjustedPosY = defaultPosY - barHeight
 
         self.minimapFrame:ClearAllPoints()
-        self.minimapFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", defaultPosX, adjustedPosY)
-        addon:DebugInfo("Minimap", "职业大厅模式 - 资源条高度: %.1f, 小地图Y偏移: %.1f (默认: %.1f)", barHeight, adjustedPosY, defaultPosY)
+        -- 使用保存的锚点而非硬编码"TOPRIGHT"，StopMovingOrSizing可能改变锚点类型
+        self.minimapFrame:SetPoint(savedAnchor, UIParent, savedAnchor, defaultPosX, adjustedPosY)
+        addon:DebugInfo("Minimap", "职业大厅模式 - 资源条高度: %.1f, 小地图Y偏移: %.1f (默认: %.1f), anchor=%s", barHeight, adjustedPosY, defaultPosY, savedAnchor)
     else
         self.minimapFrame:ClearAllPoints()
-        self.minimapFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", defaultPosX, defaultPosY)
-        addon:DebugInfo("Minimap", "野外模式 - 小地图复位到默认坐标: (%.1f, %.1f)", defaultPosX, defaultPosY)
+        -- 使用保存的锚点而非硬编码"TOPRIGHT"，StopMovingOrSizing可能改变锚点类型
+        self.minimapFrame:SetPoint(savedAnchor, UIParent, savedAnchor, defaultPosX, defaultPosY)
+        addon:DebugInfo("Minimap", "野外模式 - 小地图复位到默认坐标: anchor=%s (%.1f, %.1f)", savedAnchor, defaultPosX, defaultPosY)
     end
 
     if MinimapCluster then
@@ -1769,6 +1772,7 @@ function MinimapModule:UpdateWidgets()
     end
 
     local widgetOptions = addon.db.profile.widgets.minimap
+    self.minimapFrame:ClearAllPoints() -- 修复：必须先清除旧点，避免叠加锚点
     self.minimapFrame:SetPoint(widgetOptions.anchor, widgetOptions.posX, widgetOptions.posY)
 
 end

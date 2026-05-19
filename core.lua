@@ -478,7 +478,7 @@ function SaveUIFramePosition(frame, configPath1, configPath2)
 
     local anchor, _, relativePoint, posX, posY = frame:GetPoint(1) -- Primer punto
 
-    print("[DragonUI SaveUI] "..(configPath2 or configPath1).." anchor="..tostring(anchor).." posX="..tostring(posX).." posY="..tostring(posY).." numPoints="..tostring(frame:GetNumPoints()))
+    print("[DragonUI 保存位置] "..(configPath2 or configPath1).." anchor="..tostring(anchor).." relPt="..tostring(relativePoint).." posX="..tostring(posX).." posY="..tostring(posY).." numPoints="..tostring(frame:GetNumPoints()))
 
     --  MANEJAR RUTAS ANIDADAS (widgets.player)
     if configPath2 then
@@ -491,17 +491,17 @@ function SaveUIFramePosition(frame, configPath1, configPath2)
             addon.db.profile[configPath1][configPath2] = {}
         end
 
-        addon.db.profile[configPath1][configPath2] = {
-            anchor = anchor or "CENTER",
-            posX = posX or 0,
-            posY = posY or 0
-        }
+        -- 修复：保留表中已有的额外字段（如自定义字段），只覆盖核心位置字段
+        local config = addon.db.profile[configPath1][configPath2]
+        config.anchor = anchor or "CENTER"
+        config.posX = posX or 0
+        config.posY = posY or 0
 
 
     else
         -- Caso: SaveUIFramePosition(frame, "minimap") - compatibilidad hacia atrás
         local widgetName = configPath1
-        
+
         if not addon.db.profile.widgets then
             addon.db.profile.widgets = {}
         end

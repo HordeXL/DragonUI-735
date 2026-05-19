@@ -30,6 +30,7 @@ local function ApplyWidgetPosition()
     local widgetConfig = addon.db and addon.db.profile.widgets and addon.db.profile.widgets.target
     local defaultPosX = (widgetConfig and widgetConfig.posX) or 240
     local defaultPosY = (widgetConfig and widgetConfig.posY) or -10
+    local savedAnchor = (widgetConfig and widgetConfig.anchor) or "TOPLEFT"
     local posX = defaultPosX
     local posY = defaultPosY
 
@@ -38,11 +39,12 @@ local function ApplyWidgetPosition()
         posY = defaultPosY - barHeight
         addon:DebugInfo("TargetFrame", "职业大厅模式 - 资源条高度: %.1f, Y偏移: %.1f (默认: %.1f)", barHeight, posY, defaultPosY)
     else
-        addon:DebugInfo("TargetFrame", "野外模式 - 复位到默认坐标: (%.1f, %.1f)", posX, posY)
+        addon:DebugInfo("TargetFrame", "野外模式 - 复位到默认坐标: anchor=%s (%.1f, %.1f)", savedAnchor, posX, posY)
     end
 
     Module.targetFrame:ClearAllPoints()
-    Module.targetFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", posX, posY)
+    -- 使用保存的锚点而非硬编码"TOPLEFT"，避免拖动后锚点类型变化导致位置偏移
+    Module.targetFrame:SetPoint(savedAnchor, UIParent, savedAnchor, posX, posY)
 
     if not InCombatLockdown() then
         TargetFrame:ClearAllPoints()
