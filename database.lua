@@ -48,7 +48,7 @@ local defaults = {
             playerCastbar = {
                 anchor = "BOTTOM",
                 posX = 0,
-                posY = 300
+                posY = 280
             },
             garrisonreport = {
                 anchor = "BOTTOMLEFT",
