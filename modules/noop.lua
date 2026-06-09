@@ -80,7 +80,19 @@ local function ApplyNoopChanges()
             element:Hide()
         end
         if element then
-            element:SetAlpha(0)
+            -- ⚠️ 关键修复：MainMenuBar 不能用 SetAlpha(0)
+            -- 因为 ExtraActionButton1 等动态创建的子框架会继承父框架 alpha 而透明
+            -- 改为只隐藏 MainMenuBar 自身的纹理，不影响后代子框架
+            if element == MainMenuBar then
+                for i = 1, element:GetNumRegions() do
+                    local region = select(i, element:GetRegions())
+                    if region and region:GetObjectType() == "Texture" then
+                        region:SetAlpha(0)
+                    end
+                end
+            else
+                element:SetAlpha(0)
+            end
         end
     end
     elements = nil

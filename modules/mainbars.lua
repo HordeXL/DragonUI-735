@@ -1249,10 +1249,65 @@ end
     local eventFrame = CreateFrame("Frame")
     eventFrame:RegisterEvent("UPDATE_EXHAUSTION")
     eventFrame:RegisterEvent("PLAYER_XP_UPDATE")  -- ⚠️ 关键：监听经验值变化
-    eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")  -- ⭐ 修复：监听区域变化以控制职业大厅资源条
-    eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")  -- ⭐ 修复：监听玩家进入世界以控制职业大厅资源条
-    eventFrame:RegisterEvent("ORDER_HALL_LANDING_PAGE_CLOSED")  -- ⭐ 修复：监听职业大厅界面关闭
-    eventFrame:RegisterEvent("UPDATE_FACTION")  -- ⭐ 新增：监听声望变化，防止位置重置
+    eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+    eventFrame:RegisterEvent("ZONE_CHANGED")
+    eventFrame:RegisterEvent("MINIMAP_ZONE_CHANGED")
+    eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    eventFrame:RegisterEvent("ORDER_HALL_LANDING_PAGE_CLOSED")
+    eventFrame:RegisterEvent("UPDATE_FACTION")
+    eventFrame:RegisterEvent("GARRISON_UPDATE")
+
+    local function IsPlayerInOrderHall()
+        if not C_Garrison then return false end
+
+        local success, onGarrisonMap = pcall(C_Garrison.IsOnGarrisonMap)
+        if success and onGarrisonMap then return true end
+
+        if C_Garrison.GetLandingPageType then
+            local ok, pageType = pcall(C_Garrison.GetLandingPageType)
+            if ok and pageType == 2 then return true end
+        end
+
+        return false
+    end
+
+    -- ⭐ 主动管理职业大厅资源条显示/隐藏（修复猎人/盗贼直接进出职业大厅时无法正确隐藏/显示的问题）
+    local inLoginProtection = false
+
+    local function ShowOrderHallBar()
+        if not OrderHallCommandBar or OrderHallCommandBar:IsShown() then return end
+        OrderHallCommandBar:Show()
+        addon:DebugInfo("Mainbars", "显示资源条")
+    end
+
+    local function HideOrderHallBar()
+        if not OrderHallCommandBar or not OrderHallCommandBar:IsShown() then return end
+        OrderHallCommandBar:Hide()
+        addon:DebugInfo("Mainbars", "隐藏资源条")
+    end
+
+    -- 区域变化事件中主动同步资源条（进出时双向修正）
+    local function CheckOrderHallOnZoneChange()
+        if not OrderHallCommandBar then return end
+        -- 登录保护期内不主动隐藏，避免重载时ZONE事件误隐藏暴雪正确显示的条形
+        local inOrderHall = IsPlayerInOrderHall()
+        if inOrderHall then
+            ShowOrderHallBar()
+        elseif not inLoginProtection then
+            HideOrderHallBar()
+        end
+        -- 延迟重试让游戏状态稳定后再确认一次
+        C_Timer.After(0.5, function()
+            if not OrderHallCommandBar then return end
+            local inHall = IsPlayerInOrderHall()
+            if inHall then
+                ShowOrderHallBar()
+            elseif not inLoginProtection then
+                HideOrderHallBar()
+            end
+        end)
+    end
+
     eventFrame:SetScript("OnEvent", function(self, event)
         if event == "UPDATE_EXHAUSTION" then
             addon:DebugInfo("ExpRepBar", "========== 事件：UPDATE_EXHAUSTION ===========")
@@ -1271,8 +1326,25 @@ end
             addon:DebugInfo("ExpRepBar", "UPDATE_FACTION事件：更新声望条")
             UpdateBarPositions()
         elseif event == "ORDER_HALL_LANDING_PAGE_CLOSED" then
-            addon:DebugInfo("Mainbars", "ORDER_HALL_LANDING_PAGE_CLOSED事件")
-        elseif event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" then
+            addon:DebugInfo("Mainbars", "ORDER_HALL_LANDING_PAGE_CLOSED事件 - 检查资源条状态")
+            CheckOrderHallOnZoneChange()
+        elseif event == "GARRISON_UPDATE" then
+            addon:DebugInfo("Mainbars", "GARRISON_UPDATE事件 - 检查资源条状态")
+            CheckOrderHallOnZoneChange()
+        elseif event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "MINIMAP_ZONE_CHANGED" then
+            addon:DebugInfo("Mainbars", event .. "事件 - 检查资源条状态")
+            CheckOrderHallOnZoneChange()
+        elseif event == "PLAYER_ENTERING_WORLD" then
+            addon:DebugInfo("Mainbars", "PLAYER_ENTERING_WORLD事件 - 延迟补显资源条")
+            inLoginProtection = true
+            C_Timer.After(2.0, function()
+                inLoginProtection = false
+                if OrderHallCommandBar then
+                    if IsPlayerInOrderHall() then
+                        ShowOrderHallBar()
+                    end
+                end
+            end)
         end
     end)
 
