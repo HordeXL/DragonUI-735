@@ -111,6 +111,12 @@ local defaults = {
                 anchor = "RIGHT",
                 posX = -60,
                 posY = 70
+            },
+            -- ⭐ 新增：额外动作按钮（任务特殊技能大图标）默认位置
+            extraaction = {
+                anchor = "CENTER",
+                posX = 0,
+                posY = -300
             }
         },
         -- Quest Tracker
@@ -462,6 +468,9 @@ local defaults = {
             },
             disableblizzard = {
                 enabled = false -- Disable Blizzard native UI elements (XP bar, Reputation bar, Artifact bar, etc.)
+            },
+            extraaction = {
+                enabled = true -- Enable DragonUI positioning and styling for the Extra Action Button (quest special ability large icon)
             }
         }
     }

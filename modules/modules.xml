@@ -15,6 +15,9 @@
     <Script file="petbar.lua"/>
     <Script file="multicast.lua"/>
     
+    <!-- Extra Action Button module (quest special ability large icon) -->
+    <Script file="extraaction.lua"/>
+    
     <!-- Micro Menu & Bag module -->
     <Script file="micromenu.lua"/>
     

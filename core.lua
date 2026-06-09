@@ -297,6 +297,13 @@ function addon:RefreshConfig()
         end
     end
 
+    if addon.RefreshExtraAction then
+        local success, err = pcall(addon.RefreshExtraAction);
+        if not success then
+            table.insert(failed, "RefreshExtraAction")
+        end
+    end
+
     if addon.RefreshCooldowns then
         local success, err = pcall(addon.RefreshCooldowns);
         if not success then

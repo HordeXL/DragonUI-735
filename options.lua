@@ -304,6 +304,31 @@ function addon:CreateOptionsTable()
                         order = 25
                     },
 
+                    -- EXTRA ACTION BUTTON (QUEST SPECIAL ABILITY)
+                    extraaction_enabled = {
+                        type = 'toggle',
+                        name = "额外动作按钮（任务特殊技能）",
+                        desc = "启用DragonUI额外动作按钮控制。控制屏幕中间的大型任务特殊技能图标（如场景战役特殊按钮、世界任务区域能力等）的位置和样式。禁用时，使用默认暴雪位置。",
+                        get = function()
+                            return addon.db.profile.modules and addon.db.profile.modules.extraaction and
+                                       addon.db.profile.modules.extraaction.enabled
+                        end,
+                        set = function(info, val)
+                            if not addon.db.profile.modules then
+                                addon.db.profile.modules = {}
+                            end
+                            if not addon.db.profile.modules.extraaction then
+                                addon.db.profile.modules.extraaction = {}
+                            end
+                            addon.db.profile.modules.extraaction.enabled = val
+                            if addon.RefreshExtraActionSystem then
+                                addon.RefreshExtraActionSystem()
+                            end
+                            StaticPopup_Show("DRAGONUI_RELOAD_UI")
+                        end,
+                        order = 26
+                    },
+
 
                 }
             },
@@ -1371,6 +1396,75 @@ function addon:CreateOptionsTable()
                                         end,
                                         order = 2,
                                         width = "full"
+                                    }
+                                }
+                            },
+                            -- EXTRA ACTION BUTTON GROUP
+                            extraaction_group = {
+                                type = 'group',
+                                name = "额外动作按钮（任务技能）",
+                                desc = "屏幕中间的大型任务特殊技能图标",
+                                inline = true,
+                                order = 4,
+                                args = {
+                                    editor_mode_hint = {
+                                        type = 'description',
+                                        name = "|cffFFD700提示:|r 使用上面的|cff00FF00移动UI元素|r按钮来用鼠标拖动定位此按钮。",
+                                        order = 1
+                                    },
+                                    extraaction_x = {
+                                        type = 'range',
+                                        name = "X位置",
+                                        desc = "额外动作按钮的水平位置（负值左移，正值右移）",
+                                        min = -800,
+                                        max = 800,
+                                        step = 1,
+                                        get = function()
+                                            return addon.db.profile.widgets and
+                                                       addon.db.profile.widgets.extraaction and
+                                                       addon.db.profile.widgets.extraaction.posX or 0
+                                        end,
+                                        set = function(info, value)
+                                            if not addon.db.profile.widgets then
+                                                addon.db.profile.widgets = {}
+                                            end
+                                            if not addon.db.profile.widgets.extraaction then
+                                                addon.db.profile.widgets.extraaction = {}
+                                            end
+                                            addon.db.profile.widgets.extraaction.posX = value
+                                            if addon.RefreshExtraAction then
+                                                addon.RefreshExtraAction()
+                                            end
+                                        end,
+                                        order = 2,
+                                        width = "half"
+                                    },
+                                    extraaction_y = {
+                                        type = 'range',
+                                        name = "Y位置",
+                                        desc = "额外动作按钮的垂直位置（负值下移，正值上移）",
+                                        min = -800,
+                                        max = 800,
+                                        step = 1,
+                                        get = function()
+                                            return addon.db.profile.widgets and
+                                                       addon.db.profile.widgets.extraaction and
+                                                       addon.db.profile.widgets.extraaction.posY or 0
+                                        end,
+                                        set = function(info, value)
+                                            if not addon.db.profile.widgets then
+                                                addon.db.profile.widgets = {}
+                                            end
+                                            if not addon.db.profile.widgets.extraaction then
+                                                addon.db.profile.widgets.extraaction = {}
+                                            end
+                                            addon.db.profile.widgets.extraaction.posY = value
+                                            if addon.RefreshExtraAction then
+                                                addon.RefreshExtraAction()
+                                            end
+                                        end,
+                                        order = 3,
+                                        width = "half"
                                     }
                                 }
                             }
