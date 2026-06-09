@@ -1268,11 +1268,16 @@ end
             if ok and pageType == 2 then return true end
         end
 
+        -- 对小地图按钮的可见性检测，对开放世界职业大厅（猎人/盗贼）可靠
+        if GarrisonLandingPageMinimapButton and GarrisonLandingPageMinimapButton:IsShown() then
+            return true
+        end
+
         return false
     end
 
     -- ⭐ 主动管理职业大厅资源条显示/隐藏（修复猎人/盗贼直接进出职业大厅时无法正确隐藏/显示的问题）
-    local inLoginProtection = false
+    local inLoginProtection = true  -- 初始化即开启保护，防止重载时ZONE事件早于PLAYER_ENTERING_WORLD触发
 
     local function ShowOrderHallBar()
         if not OrderHallCommandBar or OrderHallCommandBar:IsShown() then return end
