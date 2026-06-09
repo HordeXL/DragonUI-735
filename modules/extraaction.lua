@@ -156,23 +156,22 @@ end
 
 -- ============================================================================
 -- VISIBILITY TRACKING
--- Watch ExtraActionBarFrame's show/hide to sync our anchor visibility
+-- Watch ExtraActionBarFrame and ZoneAbilityFrame show/hide to sync our anchor
 -- ============================================================================
 
 local function UpdateVisibilityFromBlizzard()
     if not IsModuleEnabled() or not ExtraActionModule.anchor then return end
     if not ExtraActionModule.extraBar then return end
 
+    -- Check both ExtraActionBarFrame (quest/scenario special abilities)
+    -- and ZoneAbilityFrame (world quest zone ability bonuses)
     local extraBarFrame = _G["ExtraActionBarFrame"]
-    if not extraBarFrame then
-        -- No ExtraActionBarFrame at all in this WoW version; hide our frame
-        ExtraActionModule.anchor:Hide()
-        ExtraActionModule.extraBar:Hide()
-        return
-    end
+    local zoneFrame = _G["ZoneAbilityFrame"]
 
-    -- Mirror ExtraActionBarFrame visibility to our anchor
-    if extraBarFrame:IsShown() then
+    local shouldShow = (extraBarFrame and extraBarFrame:IsShown())
+                    or (zoneFrame and zoneFrame:IsShown())
+
+    if shouldShow then
         if not ExtraActionModule.anchor:IsShown() then
             ExtraActionModule.anchor:Show()
             ExtraActionModule.extraBar:Show()
