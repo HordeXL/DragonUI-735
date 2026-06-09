@@ -155,35 +155,54 @@ local function ReparentZoneAbilityFrame()
 end
 
 -- ============================================================================
--- REPARENT ExtraActionBarFrame (the Blizzard container)
+-- VISIBILITY TRACKING
+-- Watch ExtraActionBarFrame's show/hide to sync our anchor visibility
 -- ============================================================================
 
-local function ReparentExtraActionBarFrame()
-    if not IsModuleEnabled() then return end
-    if not ExtraActionModule.anchor then return end
+local function UpdateVisibilityFromBlizzard()
+    if not IsModuleEnabled() or not ExtraActionModule.anchor then return end
+    if not ExtraActionModule.extraBar then return end
 
     local extraBarFrame = _G["ExtraActionBarFrame"]
-    if not extraBarFrame then return end
-
-    -- Store original state for restoration
-    if not ExtraActionModule.originalStates.extraActionBarFrame then
-        ExtraActionModule.originalStates.extraActionBarFrame = {
-            parent = extraBarFrame:GetParent(),
-            points = {}
-        }
-        for i = 1, extraBarFrame:GetNumPoints() do
-            local point, relativeTo, relativePoint, x, y = extraBarFrame:GetPoint(i)
-            table.insert(ExtraActionModule.originalStates.extraActionBarFrame.points,
-                {point, relativeTo, relativePoint, x, y})
-        end
+    if not extraBarFrame then
+        -- No ExtraActionBarFrame at all in this WoW version; hide our frame
+        ExtraActionModule.anchor:Hide()
+        ExtraActionModule.extraBar:Hide()
+        return
     end
 
-    -- Set parent to anchor and center it
-    if extraBarFrame:GetParent() ~= ExtraActionModule.extraBar then
-        extraBarFrame:ClearAllPoints()
-        extraBarFrame:SetParent(ExtraActionModule.extraBar)
-        extraBarFrame:SetPoint("CENTER", ExtraActionModule.extraBar, "CENTER", 0, 0)
-        extraBarFrame:SetFrameLevel(ExtraActionModule.extraBar:GetFrameLevel() - 1)
+    -- Mirror ExtraActionBarFrame visibility to our anchor
+    if extraBarFrame:IsShown() then
+        if not ExtraActionModule.anchor:IsShown() then
+            ExtraActionModule.anchor:Show()
+            ExtraActionModule.extraBar:Show()
+        end
+    else
+        if ExtraActionModule.anchor:IsShown() then
+            ExtraActionModule.anchor:Hide()
+            ExtraActionModule.extraBar:Hide()
+        end
+    end
+end
+
+local visibilityUpdateFrame = nil
+local function StartVisibilityWatcher()
+    if visibilityUpdateFrame then return end
+
+    visibilityUpdateFrame = CreateFrame("Frame")
+    visibilityUpdateFrame:SetScript("OnUpdate", function(self, elapsed)
+        self.nextCheck = (self.nextCheck or 0) + elapsed
+        -- Check every 0.5 seconds to avoid performance issues
+        if self.nextCheck < 0.5 then return end
+        self.nextCheck = 0
+        UpdateVisibilityFromBlizzard()
+    end)
+end
+
+local function StopVisibilityWatcher()
+    if visibilityUpdateFrame then
+        visibilityUpdateFrame:SetScript("OnUpdate", nil)
+        visibilityUpdateFrame = nil
     end
 end
 
@@ -199,7 +218,8 @@ local function HookExtraActionUpdates()
         hooksecurefunc("ExtraActionBar_Update", function()
             if IsModuleEnabled() and ExtraActionModule.extraBar then
                 ReparentExtraActionButton()
-                ReparentExtraActionBarFrame()
+                -- Immediately sync visibility after Blizzard's update
+                UpdateVisibilityFromBlizzard()
             end
         end)
         ExtraActionModule.hooks.extraActionBarUpdate = true
@@ -228,13 +248,18 @@ local function ApplyExtraActionSystem()
     CreateAnchorFrame()
     if not ExtraActionModule.anchor then return end
 
-    -- Reparent ExtraActionBarFrame and ExtraActionButton1
-    ReparentExtraActionBarFrame()
+    -- Reparent ExtraActionButton1 to our anchor
+    -- NOTE: We do NOT reparent ExtraActionBarFrame — Blizzard manages its own
+    -- show/hide. Instead we watch its visibility via OnUpdate.
     ReparentExtraActionButton()
     ReparentZoneAbilityFrame()
 
     -- Hook updates so reparenting is maintained after Blizzard updates
     HookExtraActionUpdates()
+
+    -- Start watching ExtraActionBarFrame visibility to sync our anchor
+    StartVisibilityWatcher()
+    UpdateVisibilityFromBlizzard()
 
     ExtraActionModule.applied = true
 end
@@ -252,18 +277,8 @@ local function RestoreExtraActionSystem()
         return
     end
 
-    -- Restore ExtraActionBarFrame to original state
-    if ExtraActionModule.originalStates.extraActionBarFrame and _G["ExtraActionBarFrame"] then
-        local original = ExtraActionModule.originalStates.extraActionBarFrame
-        ExtraActionBarFrame:SetParent(original.parent or UIParent)
-        ExtraActionBarFrame:ClearAllPoints()
-        for _, pointData in ipairs(original.points) do
-            local point, relativeTo, relativePoint, x, y = unpack(pointData)
-            if relativeTo then
-                ExtraActionBarFrame:SetPoint(point, relativeTo, relativePoint, x, y)
-            end
-        end
-    end
+    -- Stop visibility watcher
+    StopVisibilityWatcher()
 
     -- Restore ExtraActionButton1 to original state
     if ExtraActionModule.originalStates.extraActionButton and ExtraActionButton1 then
