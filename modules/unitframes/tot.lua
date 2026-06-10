@@ -393,7 +393,7 @@ local function UpdateToT()
             Module.elite:SetTexCoord(right, left, top, bottom)
             Module.elite:SetSize(51, 51)
             Module.elite:SetPoint("CENTER", f, "LEFT", 28, 0)
-            Module.elite:SetDrawLayer("OVERLAY", 11)
+            Module.elite:SetDrawLayer("OVERLAY", 7)
             Module.elite:Show()
         else
             Module.elite:Hide()

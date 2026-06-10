@@ -284,6 +284,8 @@ function BuffFrameModule:Enable()
         buffFrame:RegisterEvent("UNIT_ENTERED_VEHICLE")
         buffFrame:RegisterEvent("UNIT_EXITED_VEHICLE")
         buffFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+        buffFrame:RegisterEvent("ZONE_CHANGED")
+        buffFrame:RegisterEvent("ZONE_CHANGED_INDOORS")
         buffFrame:RegisterEvent("ORDER_HALL_LANDING_PAGE_SHOWN")
         buffFrame:RegisterEvent("ORDER_HALL_LANDING_PAGE_CLOSED")
         
@@ -308,6 +310,44 @@ function BuffFrameModule:Enable()
                 if unit == 'player' then
                     ShowToggleButtonIf(GetUnitBuffCount("player", 16) > 0)
                 end
+            elseif event == "ZONE_CHANGED" then
+                addon:DebugInfo("BuffFrame", "ZONE_CHANGED - 子区域变化，重新应用锚点")
+                if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+                    local areaID = GetCurrentMapAreaID()
+                    if not addon:IsInClassHall(areaID) then
+                        OrderHallCommandBar:Hide()
+                    end
+                end
+                BuffFrameModule:UpdatePosition()
+                C_Timer.After(0.5, function()
+                    if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+                        local areaID = GetCurrentMapAreaID()
+                        if not addon:IsInClassHall(areaID) then
+                            OrderHallCommandBar:Hide()
+                        end
+                    end
+                    BuffFrameModule:UpdatePosition()
+                end)
+
+            elseif event == "ZONE_CHANGED_INDOORS" then
+                addon:DebugInfo("BuffFrame", "ZONE_CHANGED_INDOORS - 室内外过渡，重新应用锚点")
+                if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+                    local areaID = GetCurrentMapAreaID()
+                    if not addon:IsInClassHall(areaID) then
+                        OrderHallCommandBar:Hide()
+                    end
+                end
+                BuffFrameModule:UpdatePosition()
+                C_Timer.After(0.5, function()
+                    if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+                        local areaID = GetCurrentMapAreaID()
+                        if not addon:IsInClassHall(areaID) then
+                            OrderHallCommandBar:Hide()
+                        end
+                    end
+                    BuffFrameModule:UpdatePosition()
+                end)
+
             elseif event == "ZONE_CHANGED_NEW_AREA" then
                 addon:DebugInfo("BuffFrame", "ZONE_CHANGED_NEW_AREA - 强制重新应用锚点")
                 BuffFrameModule:UpdatePosition()
@@ -401,6 +441,17 @@ function BuffFrameModule:Enable()
         end)
         BuffFrameModule.orderHallHooked = true
         addon:DebugInfo("BuffFrame", "已注册 UIParent_UpdateTopFramePositions hook")
+    end
+
+    if OrderHallCommandBar and not BuffFrameModule.orderHallShowHooked then
+        hooksecurefunc(OrderHallCommandBar, "Show", function()
+            local areaID = GetCurrentMapAreaID()
+            if not addon:IsInClassHall(areaID) then
+                OrderHallCommandBar:Hide()
+            end
+        end)
+        BuffFrameModule.orderHallShowHooked = true
+        addon:DebugInfo("BuffFrame", "已注册 OrderHallCommandBar.Show hook")
     end
     
 end

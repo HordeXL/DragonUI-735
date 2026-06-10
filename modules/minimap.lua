@@ -1882,20 +1882,56 @@ initFrame:SetScript("OnEvent", function(self, event, addonName)
         if not MinimapModule.eventsFrame then
             MinimapModule.eventsFrame = CreateFrame("Frame")
             MinimapModule.eventsFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+            MinimapModule.eventsFrame:RegisterEvent("ZONE_CHANGED")
+            MinimapModule.eventsFrame:RegisterEvent("ZONE_CHANGED_INDOORS")
             MinimapModule.eventsFrame:RegisterEvent("ORDER_HALL_LANDING_PAGE_CLOSED")
             MinimapModule.eventsFrame:RegisterEvent("ORDER_HALL_LANDING_PAGE_SHOWN")
             MinimapModule.eventsFrame:SetScript("OnEvent", function(self, event)
                 local delay = (event == "ORDER_HALL_LANDING_PAGE_SHOWN") and 0.5 or 0.3
-                C_Timer.After(delay, function()
-                    if not InCombatLockdown() then
-                        MinimapModule:ApplyPositionByZone()
-                        if event == "ORDER_HALL_LANDING_PAGE_SHOWN" then
-                            C_Timer.After(0.3, function()
-                                MinimapModule:ApplyPositionByZone()
-                            end)
+                if event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" then
+                    delay = 0  -- 即时检查，无需延迟
+                end
+                if delay > 0 then
+                    C_Timer.After(delay, function()
+                        if not InCombatLockdown() then
+                            if event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" then
+                                if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+                                    local areaID = GetCurrentMapAreaID()
+                                    if not addon:IsInClassHall(areaID) then
+                                        OrderHallCommandBar:Hide()
+                                    end
+                                end
+                            end
+                            MinimapModule:ApplyPositionByZone()
+                            if event == "ORDER_HALL_LANDING_PAGE_SHOWN" then
+                                C_Timer.After(0.3, function()
+                                    MinimapModule:ApplyPositionByZone()
+                                end)
+                            end
                         end
+                    end)
+                else
+                    if not InCombatLockdown() then
+                        if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+                            local areaID = GetCurrentMapAreaID()
+                            if not addon:IsInClassHall(areaID) then
+                                OrderHallCommandBar:Hide()
+                            end
+                        end
+                        MinimapModule:ApplyPositionByZone()
+                        C_Timer.After(0.5, function()
+                            if not InCombatLockdown() then
+                                if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+                                    local areaID = GetCurrentMapAreaID()
+                                    if not addon:IsInClassHall(areaID) then
+                                        OrderHallCommandBar:Hide()
+                                    end
+                                end
+                                MinimapModule:ApplyPositionByZone()
+                            end
+                        end)
                     end
-                end)
+                end
             end)
             -- Hook 暴雪职业大厅位置更新函数，和玩家/目标框体完全同步
             if _G.UIParent_UpdateTopFramePositions then

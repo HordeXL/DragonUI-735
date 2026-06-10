@@ -1767,6 +1767,52 @@ local function SetupPlayerEvents()
             end)
         end,
 
+        ZONE_CHANGED = function()
+            if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+                local areaID = GetCurrentMapAreaID()
+                if not addon:IsInClassHall(areaID) then
+                    OrderHallCommandBar:Hide()
+                end
+            end
+            ApplyWidgetPosition()
+            C_Timer.After(0.5, function()
+                if InCombatLockdown() then
+                    deferredPositionUpdate = true
+                else
+                    if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+                        local areaID = GetCurrentMapAreaID()
+                        if not addon:IsInClassHall(areaID) then
+                            OrderHallCommandBar:Hide()
+                        end
+                    end
+                    ApplyWidgetPosition()
+                end
+            end)
+        end,
+
+        ZONE_CHANGED_INDOORS = function()
+            if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+                local areaID = GetCurrentMapAreaID()
+                if not addon:IsInClassHall(areaID) then
+                    OrderHallCommandBar:Hide()
+                end
+            end
+            ApplyWidgetPosition()
+            C_Timer.After(0.5, function()
+                if InCombatLockdown() then
+                    deferredPositionUpdate = true
+                else
+                    if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+                        local areaID = GetCurrentMapAreaID()
+                        if not addon:IsInClassHall(areaID) then
+                            OrderHallCommandBar:Hide()
+                        end
+                    end
+                    ApplyWidgetPosition()
+                end
+            end)
+        end,
+
         RUNE_TYPE_UPDATE = function(runeIndex)
             -- Mejorado: manejo más robusto del evento
             if runeIndex and runeIndex >= 1 and runeIndex <= 6 then

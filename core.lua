@@ -58,6 +58,26 @@ if textureMetatable and not textureMetatable.set_atlas then
 end
 addon.SetAtlas = SetAtlas
 
+-- Order hall area IDs for Legion class halls (used by multiple modules)
+addon.ORDER_HALL_AREA_IDS = {
+    [7272] = true, [7572] = true,  -- Mage - Hall of the Guardian
+    [7871] = true,                  -- Hunter - The Lodge
+    [7872] = true,                  -- Druid - The Dreamgrove
+    [7874] = true,                  -- Shaman - The Grand Hall
+    [7875] = true,                  -- Paladin - Sanctum of Light
+    [7876] = true,                  -- Monk - The Hall of Preservation
+    [7877] = true,                  -- Warlock - The Fel Hammer
+    [7878] = true,                  -- Priest - Netherlight Temple
+    [7879] = true,                  -- Warrior - Skyhold
+    [7880] = true,                  -- Death Knight - Acherus: The Ebon Hold
+    [7881] = true,                  -- Demon Hunter - Mardum
+    [7917] = true,                  -- Rogue - Hall of Shadows
+}
+function addon:IsInClassHall(areaID)
+    areaID = areaID or GetCurrentMapAreaID()
+    return addon.ORDER_HALL_AREA_IDS[areaID] == true
+end
+
 -- Function to recursively copy tables
 local function deepCopy(source, target)
     for key, value in pairs(source) do
@@ -185,6 +205,16 @@ function addon.core:OnEnable()
     -- Register slash commands
     self:RegisterChatCommand("dragonui", "SlashCommand");
     self:RegisterChatCommand("pi", "SlashCommand");
+
+    -- Cleanup OrderHallCommandBar after /reload (runs after all modules initialized)
+    C_Timer.After(0.5, function()
+        if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+            local areaID = GetCurrentMapAreaID()
+            if not addon:IsInClassHall(areaID) then
+                OrderHallCommandBar:Hide()
+            end
+        end
+    end)
 
     -- Fire custom event to signal that DragonUI is fully initialized
     -- This ensures modules get the correct config values

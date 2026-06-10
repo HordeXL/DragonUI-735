@@ -982,6 +982,50 @@ local function OnEvent(self, event, ...)
                 ApplyWidgetPosition()
             end
         end)
+
+    elseif event == "ZONE_CHANGED" then
+        if Module.configured and not InCombatLockdown() then
+            if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+                local areaID = GetCurrentMapAreaID()
+                if not addon:IsInClassHall(areaID) then
+                    OrderHallCommandBar:Hide()
+                end
+            end
+            ApplyWidgetPosition()
+            C_Timer.After(0.5, function()
+                if Module.configured and not InCombatLockdown() then
+                    if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+                        local areaID = GetCurrentMapAreaID()
+                        if not addon:IsInClassHall(areaID) then
+                            OrderHallCommandBar:Hide()
+                        end
+                    end
+                    ApplyWidgetPosition()
+                end
+            end)
+        end
+
+    elseif event == "ZONE_CHANGED_INDOORS" then
+        if Module.configured and not InCombatLockdown() then
+            if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+                local areaID = GetCurrentMapAreaID()
+                if not addon:IsInClassHall(areaID) then
+                    OrderHallCommandBar:Hide()
+                end
+            end
+            ApplyWidgetPosition()
+            C_Timer.After(0.5, function()
+                if Module.configured and not InCombatLockdown() then
+                    if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
+                        local areaID = GetCurrentMapAreaID()
+                        if not addon:IsInClassHall(areaID) then
+                            OrderHallCommandBar:Hide()
+                        end
+                    end
+                    ApplyWidgetPosition()
+                end
+            end)
+        end
     end
 
 end
@@ -1005,6 +1049,10 @@ if not Module.eventsFrame then
     Module.eventsFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
     --  EVENTO PARA DETECTAR ENTRADA/SALIDA DE SALA DE ÓRDENES
     Module.eventsFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+    --  修复猎人/盗贼直接走出职业大厅（子区域变化，无加载画面）
+    Module.eventsFrame:RegisterEvent("ZONE_CHANGED")
+    --  补充捕获室内/室外过渡
+    Module.eventsFrame:RegisterEvent("ZONE_CHANGED_INDOORS")
     --  EVENTOS CRÍTICOS PARA EL TEXT SYSTEM
     Module.eventsFrame:RegisterEvent("UNIT_HEALTH")
     Module.eventsFrame:RegisterEvent("UNIT_MAXHEALTH") 

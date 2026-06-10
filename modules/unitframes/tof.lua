@@ -226,7 +226,7 @@ local function UpdateClassification()
         -- USAR VALORES CORREGIDOS DEL DEBUG
         frameElements.elite:SetSize(51, 51)
         frameElements.elite:SetPoint("CENTER", FocusFrameToTPortrait, "CENTER", -4, -2)
-        frameElements.elite:SetDrawLayer("OVERLAY", 11)
+        frameElements.elite:SetDrawLayer("OVERLAY", 7)
         frameElements.elite:Show()
         frameElements.elite:SetAlpha(1)
     else

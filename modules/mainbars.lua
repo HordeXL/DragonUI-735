@@ -1250,6 +1250,7 @@ end
     eventFrame:RegisterEvent("UPDATE_EXHAUSTION")
     eventFrame:RegisterEvent("PLAYER_XP_UPDATE")  -- ⚠️ 关键：监听经验值变化
     eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")  -- ⭐ 修复：监听区域变化以控制职业大厅资源条
+    eventFrame:RegisterEvent("ZONE_CHANGED")  -- ⭐ 修复：猎人/盗贼直接走出职业大厅（子区域变化）
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")  -- ⭐ 修复：监听玩家进入世界以控制职业大厅资源条
     eventFrame:RegisterEvent("ORDER_HALL_LANDING_PAGE_CLOSED")  -- ⭐ 修复：监听职业大厅界面关闭
     eventFrame:RegisterEvent("UPDATE_FACTION")  -- ⭐ 新增：监听声望变化，防止位置重置
@@ -1272,6 +1273,10 @@ end
             UpdateBarPositions()
         elseif event == "ORDER_HALL_LANDING_PAGE_CLOSED" then
             addon:DebugInfo("Mainbars", "ORDER_HALL_LANDING_PAGE_CLOSED事件")
+        elseif event == "ZONE_CHANGED" then
+            -- 修复猎人/盗贼直接走出职业大厅（无加载画面）时资源条残留
+            addon:DebugInfo("Mainbars", "ZONE_CHANGED事件 - 子区域变化")
+            UpdateBarPositions()
         elseif event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" then
         end
     end)
