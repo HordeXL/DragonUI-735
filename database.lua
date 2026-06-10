@@ -116,7 +116,7 @@ local defaults = {
             extraaction = {
                 anchor = "CENTER",
                 posX = 0,
-                posY = -300
+                posY = -200
             }
         },
         -- Quest Tracker
