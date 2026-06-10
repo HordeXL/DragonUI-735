@@ -897,6 +897,7 @@ function addon:CreateOptionsTable()
                 }
             },
 
+        --[[ 隐藏经验和声望条标签页
             xprepbar = {
                 type = 'group',
                 name = "经验和声望条",
@@ -1102,6 +1103,8 @@ function addon:CreateOptionsTable()
                     }
                 }
             },
+            ]]--
+
 
             style = {
                 type = 'group',
