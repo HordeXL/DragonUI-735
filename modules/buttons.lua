@@ -102,22 +102,16 @@ local function ContainsCJKCharacters(text)
 end
 
 -- helper function to handle action button grid logic
+-- 强制显示：只要模块启用，始终显示所有按钮的grid边框，不调用ActionButton_HideGrid
 local function handleActionButton(button, wowAlwaysShow)
     if not IsModuleEnabled() then return end
     
     -- CRITICAL: Avoid taint during combat by not modifying protected frames
     if InCombatLockdown() then return end
     
-    if wowAlwaysShow then
-        button:SetAttribute('showgrid', 1)
-        ActionButton_ShowGrid(button)
-    else
-        if HasAction(button.action) then
-            ActionButton_ShowGrid(button)
-        else
-            ActionButton_HideGrid(button)
-        end
-    end
+    -- 强制显示所有按钮边框，无论是否有action或alwaysShowActionBars设置
+    button:SetAttribute('showgrid', 1)
+    ActionButton_ShowGrid(button)
 end
 
 function addon.actionbuttons_grid()
@@ -133,8 +127,8 @@ function addon.actionbuttons_grid()
     local db = GetButtonsConfig()
     local hideMainBg = db and db.hide_main_bar_background
     
-    for index = 1, NUM_ACTIONBAR_BUTTONS do
-        local button = _G[format('ActionButton%d', index)]
+    -- 遍历所有动作条按钮（主动作条 + MultiBar系列），强制显示边框
+    for button in addon.buttons_iterator() do
         if button then
             handleActionButton(button, wowAlwaysShow)
         end
@@ -564,6 +558,15 @@ local function actionbuttons_update(button)
 	local name = button:GetName();
 	if name:find('MultiCast') then return; end
 	button:SetNormalTexture(config.assets.normal);
+	
+	-- 强制显示边框纹理颜色（不依赖alwaysShowActionBars或ShowGrid触发）
+	local normalTexture = _G[name..'NormalTexture']
+	if normalTexture then
+		local borderColor = config.buttons.border_color
+		if borderColor then
+			normalTexture:SetVertexColor(borderColor[1], borderColor[2], borderColor[3], borderColor[4])
+		end
+	end
 end
 
 function addon.RefreshButtons()
@@ -853,6 +856,25 @@ addon.package:RegisterEvents(function()
             addon:DebugInfo("Buttons", "执行 actionbuttons_grid 和 RefreshButtons")
             addon.actionbuttons_grid(); 
             addon.RefreshButtons();
+            
+            -- 关键修复：确保所有动作条按钮的边框材质颜色被正确应用
+            -- 这解决了登录时按钮边框不显示的问题（不依赖ActionButton_ShowGrid触发）
+            local db = GetButtonsConfig()
+            local borderColor = config.buttons.border_color
+            if borderColor then
+                for button in addon.buttons_iterator() do
+                    if button then
+                        local buttonName = button:GetName()
+                        if buttonName then
+                            local normalTexture = _G[buttonName..'NormalTexture']
+                            if normalTexture then
+                                normalTexture:SetVertexColor(borderColor[1], borderColor[2], borderColor[3], borderColor[4])
+                            end
+                        end
+                    end
+                end
+                addon:DebugInfo("Buttons", "已主动应用边框颜色到所有动作条按钮")
+            end
             
             -- 确保主动作条背景也更新
             if MainMenuBarMixin and MainMenuBarMixin.update_main_bar_background then
