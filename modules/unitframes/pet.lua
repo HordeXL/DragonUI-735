@@ -638,19 +638,52 @@ end
 
 -- Polling frame for responsive portrait detection (checks every frame)
 local portraitPollFrame = CreateFrame("Frame")
-local POLL_TIMEOUT = 5.0
+local POLL_TIMEOUT = 10.0
+
+-- Check if portrait texture is actually loaded (not just a green square)
+local function IsPortraitLoaded()
+    if not PetPortrait then return false end
+    local texture = PetPortrait:GetTexture()
+    if not texture then return false end
+    -- If texture is a file path, check it's not the default unknown texture
+    if type(texture) == "string" then
+        -- Green texture or missing texture indicators
+        if texture:find("TempPortrait") or texture:find("Unknown") then
+            return false
+        end
+    end
+    return true
+end
+
+-- Pre-load portrait texture to speed up async loading
+local function PreloadPetPortrait()
+    if not PetPortrait then return end
+    -- Force texture load by setting it multiple times
+    if SetPortraitTexture then
+        SetPortraitTexture(PetPortrait, "pet")
+    elseif PetPortrait.SetPortraitToUnit then
+        PetPortrait:SetPortraitToUnit("pet")
+    end
+    -- Also try to trigger the game to load pet data
+    if PetFrame_Update then
+        PetFrame_Update(PetFrame)
+    end
+end
 
 local function StartPortraitPolling()
     if not UnitExists("pet") or portraitPollFrame.polling then return end
     portraitPollFrame.elapsed = 0
     portraitPollFrame.lastTick = 0
     portraitPollFrame.polling = true
+    portraitPollFrame.portraitLoaded = false
     portraitPollFrame:Show()
     ForceShowPetFrame()
+    PreloadPetPortrait()
 end
 
 local function StopPortraitPolling()
     portraitPollFrame.polling = false
+    portraitPollFrame.portraitLoaded = false
     portraitPollFrame:Hide()
 end
 
@@ -672,11 +705,30 @@ portraitPollFrame:SetScript("OnUpdate", function(self, elapsed)
         return
     end
 
-    local tick = self.elapsed < 0.5 and 0.05 or 0.15
+    -- Dynamic tick rate: faster at start, slower after portrait loads
+    local tick
+    if self.portraitLoaded then
+        tick = 0.5  -- Slow down once loaded
+    elseif self.elapsed < 1.0 then
+        tick = 0.03  -- Very frequent in first second
+    elseif self.elapsed < 3.0 then
+        tick = 0.08  -- Moderate frequency
+    else
+        tick = 0.2   -- Slower after 3 seconds
+    end
+
     local nextTick = (self.lastTick or 0) + tick
     if self.elapsed >= nextTick then
         self.lastTick = nextTick
         ForceShowPetFrame()
+        PreloadPetPortrait()
+
+        -- Check if portrait is fully loaded
+        if not self.portraitLoaded and IsPortraitLoaded() then
+            self.portraitLoaded = true
+            -- One final refresh after a short delay to ensure everything is ready
+            C_Timer.After(0.1, ForceShowPetFrame)
+        end
     end
 end)
 
