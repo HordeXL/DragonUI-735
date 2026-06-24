@@ -79,7 +79,7 @@ local function CheckAndHideBarIfNeeded(source)
         hooksecurefunc(OrderHallCommandBar, "Show", function()
             C_Timer.After(0, function()
                 CheckAndHideBarIfNeeded("ShowHook")
-                addon:SendMessage("DRAGONUI_ORDER_HALL_CHANGED")
+                addon.core:SendMessage("DRAGONUI_ORDER_HALL_CHANGED")
             end)
         end)
         orderHallManager.hookedShow = true
@@ -102,14 +102,14 @@ local function ScheduleBarChecks(source)
     for i, delay in ipairs(delays) do
         C_Timer.After(delay, function()
             CheckAndHideBarIfNeeded(source .. "[" .. i .. "]")
-            addon:SendMessage("DRAGONUI_ORDER_HALL_CHANGED")
+            addon.core:SendMessage("DRAGONUI_ORDER_HALL_CHANGED")
         end)
     end
 end
 
 function addon:CheckOrderHallBar(source)
     CheckAndHideBarIfNeeded(source or "api")
-    addon:SendMessage("DRAGONUI_ORDER_HALL_CHANGED")
+    addon.core:SendMessage("DRAGONUI_ORDER_HALL_CHANGED")
 end
 
 function addon:ScheduleOrderHallChecks(source)
@@ -146,7 +146,7 @@ local function InitializeOrderHallManager()
         hooksecurefunc(OrderHallCommandBar, "Show", function()
             C_Timer.After(0, function()
                 CheckAndHideBarIfNeeded("ShowHook")
-                addon:SendMessage("DRAGONUI_ORDER_HALL_CHANGED")
+                addon.core:SendMessage("DRAGONUI_ORDER_HALL_CHANGED")
             end)
         end)
         orderHallManager.hookedShow = true
@@ -155,7 +155,7 @@ local function InitializeOrderHallManager()
     -- Initial cleanup for /reload cases
     C_Timer.After(0.5, function()
         CheckAndHideBarIfNeeded("init")
-        addon:SendMessage("DRAGONUI_ORDER_HALL_CHANGED")
+        addon.core:SendMessage("DRAGONUI_ORDER_HALL_CHANGED")
     end)
 
     orderHallManager.initialized = true
