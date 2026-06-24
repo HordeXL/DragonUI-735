@@ -7,20 +7,6 @@ local gridOverlay = nil;
 local exitEditorButton = nil;
 local resetAllButton = nil;
 
--- StaticPopup para reiniciar UI después de salir del modo editor
-StaticPopupDialogs["DRAGONUI_RELOAD_UI"] = {
-    text = "UI元素已重新定位。是否立即重载UI以确保所有图形正确显示？",
-    button1 = "立即重载",
-    button2 = "稍后",
-    OnAccept = function()
-        ReloadUI()
-    end,
-    timeout = 0,
-    whileDead = true,
-    hideOnEscape = true,
-    preferredIndex = 3,
-}
-
 --  BOTÓN DE SALIDA DEL MODO EDITOR
 local function createExitButton()
     if exitEditorButton then return; end

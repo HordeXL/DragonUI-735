@@ -228,6 +228,7 @@ local function SetupFrameElement(parent, name, layer, texture, point, size)
     element:SetTexture(texture)
     element:SetPoint(unpack(point))
     if size then element:SetSize(unpack(size)) end
+    element:Show()
     return element
 end
 
@@ -275,10 +276,51 @@ local function ReplaceBlizzardPetFrame()
     local petFrame = PetFrame
     if not petFrame then return end
 
+    -- Force show the pet frame if a pet exists (fixes tamed pet frame not showing)
+    if UnitExists("pet") then
+        petFrame:Show()
+    end
+
     if not moduleState.hooks.onUpdate then
         petFrame:SetScript("OnUpdate", PetFrame_OnUpdate)
         moduleState.hooks.onUpdate = true
-        
+    end
+
+    if not moduleState.hooks.onShow then
+        -- Hook :Show so every time Blizzard shows the pet frame,
+        -- our custom styling gets re-applied
+        hooksecurefunc(petFrame, "Show", function(self)
+            -- Re-apply all custom styling on the next frame update
+            C_Timer.After(0, function()
+                if UnitExists("pet") and self then
+                    PetFrameTexture:SetTexture('')
+                    PetFrameTexture:Hide()
+                    if PetPortrait then
+                        PetPortrait:ClearAllPoints()
+                        PetPortrait:SetPoint("LEFT", 6, 0)
+                        PetPortrait:SetSize(34, 34)
+                        PetPortrait:SetDrawLayer('ARTWORK', 0)
+                        PetPortrait:Show()
+                    end
+                    if moduleState.frame.background then
+                        moduleState.frame.background:ClearAllPoints()
+                        if PetPortrait then
+                            moduleState.frame.background:SetPoint('LEFT', PetPortrait, 'CENTER', -24, -10)
+                        end
+                        moduleState.frame.background:Show()
+                    end
+                    if moduleState.frame.border then
+                        moduleState.frame.border:ClearAllPoints()
+                        if PetPortrait then
+                            moduleState.frame.border:SetPoint('LEFT', PetPortrait, 'CENTER', -24, -10)
+                        end
+                        moduleState.frame.border:Show()
+                    end
+                    HideBlizzardPetTexts()
+                end
+            end)
+        end)
+        moduleState.hooks.onShow = true
     end
     
     ApplyFramePositioning()
@@ -296,29 +338,40 @@ local function ReplaceBlizzardPetFrame()
         portrait:ClearAllPoints()
         portrait:SetPoint("LEFT", 6, 0)
         portrait:SetSize(34, 34)
-        portrait:SetDrawLayer('BACKGROUND')
+        portrait:SetDrawLayer('ARTWORK', 0)
+        portrait:Show()
+        -- Use SetPortraitTexture (global, native Legion API) as primary,
+        -- and SetPortraitToUnit as fallback for newer clients
+        if SetPortraitTexture then
+            SetPortraitTexture(PetPortrait, "pet")
+        elseif portrait.SetPortraitToUnit then
+            portrait:SetPortraitToUnit("pet")
+        end
     end
     
-    -- Create DragonUI elements if needed
-    if not moduleState.frame.background then
-        moduleState.frame.background = SetupFrameElement(
-            petFrame,
-            'DragonUIPetFrameBackground',
-            {'BACKGROUND', 1},
-            TEXTURE_PATH .. TOT_BASE .. 'BACKGROUND',
-            {'LEFT', portrait, 'CENTER', -24, -10}
-        )
+    -- Always re-create DragonUI elements (fixes tamed pet frame not showing -
+    -- Blizzard may reset/re-create child textures of PetFrame)
+    if moduleState.frame.background then
+        moduleState.frame.background:Hide()
     end
+    moduleState.frame.background = SetupFrameElement(
+        petFrame,
+        'DragonUIPetFrameBackground',
+        {'BACKGROUND', 1},
+        TEXTURE_PATH .. TOT_BASE .. 'BACKGROUND',
+        {'LEFT', portrait, 'CENTER', -24, -10}
+    )
     
-    if not moduleState.frame.border then
-        moduleState.frame.border = SetupFrameElement(
-            PetFrameHealthBar,
-            'DragonUIPetFrameBorder',
-            {'OVERLAY', 6},
-            TEXTURE_PATH .. TOT_BASE .. 'BORDER',
-            {'LEFT', portrait, 'CENTER', -24, -10}
-        )
+    if moduleState.frame.border then
+        moduleState.frame.border:Hide()
     end
+    moduleState.frame.border = SetupFrameElement(
+        PetFrameHealthBar,
+        'DragonUIPetFrameBorder',
+        {'OVERLAY', 6},
+        TEXTURE_PATH .. TOT_BASE .. 'BORDER',
+        {'LEFT', portrait, 'CENTER', -24, -10}
+    )
     
     -- Setup health bar
     SetupStatusBar(
@@ -415,12 +468,45 @@ end
 -- UPDATE HANDLER
 -- ===============================================================
 local function OnPetFrameUpdate()
+    -- PetFrame_Update re-applies Blizzard textures; re-hide them
+    if PetFrameTexture then
+        PetFrameTexture:SetTexture('')
+        PetFrameTexture:Hide()
+    end
+
+    -- Force PetPortrait to show and position correctly (fixes tamed pet portrait not showing)
+    local portrait = PetPortrait
+    if portrait then
+        portrait:ClearAllPoints()
+        portrait:SetPoint("LEFT", 6, 0)
+        portrait:SetSize(34, 34)
+        portrait:SetDrawLayer('ARTWORK', 0)
+        portrait:Show()
+        -- Use SetPortraitTexture (global, native Legion API) as primary,
+        -- and SetPortraitToUnit as fallback for newer clients
+        if SetPortraitTexture then
+            SetPortraitTexture(PetPortrait, "pet")
+        elseif portrait.SetPortraitToUnit then
+            portrait:SetPortraitToUnit("pet")
+        end
+    end
+
     -- Refresh textures
     if moduleState.frame.background then
         moduleState.frame.background:SetTexture(TEXTURE_PATH .. TOT_BASE .. 'BACKGROUND')
+        moduleState.frame.background:ClearAllPoints()
+        if PetPortrait then
+            moduleState.frame.background:SetPoint('LEFT', PetPortrait, 'CENTER', -24, -10)
+        end
+        moduleState.frame.background:Show()
     end
     if moduleState.frame.border then
         moduleState.frame.border:SetTexture(TEXTURE_PATH .. TOT_BASE .. 'BORDER')
+        moduleState.frame.border:ClearAllPoints()
+        if PetPortrait then
+            moduleState.frame.border:SetPoint('LEFT', PetPortrait, 'CENTER', -24, -10)
+        end
+        moduleState.frame.border:Show()
     end
     
     UpdatePowerBarTexture()
@@ -447,7 +533,19 @@ function PetFrameModule:OnEnable()
         hooksecurefunc('PetFrame_Update', OnPetFrameUpdate)
         moduleState.hooks.petUpdate = true
     end
-    -- Ocultar textos vanilla al habilitar el módulo
+    if not moduleState.hooks.petHide then
+        -- Prevent Blizzard from hiding the pet frame while a pet exists
+        hooksecurefunc(PetFrame, "Hide", function(self)
+            if UnitExists("pet") then
+                C_Timer.After(0, function()
+                    if UnitExists("pet") and self then
+                        self:Show()
+                    end
+                end)
+            end
+        end)
+        moduleState.hooks.petHide = true
+    end
     HideBlizzardPetTexts()
 end
 
@@ -476,28 +574,161 @@ end
 
 
 -- ===============================================================
+-- FORCE-SHOW HELPER: ensures all custom pet frame elements are visible
+-- (used on tame, reload, re-summon, and delayed retries)
+-- ===============================================================
+local function ForceShowPetFrame()
+    if not UnitExists("pet") or not PetFrame then return end
+
+    -- Try to load pet UI if it hasn't been created yet
+    if not PetPortrait then
+        if PetFrame_LoadUI then
+            PetFrame_LoadUI()
+        end
+    end
+
+    -- Force show the main pet frame
+    PetFrame:Show()
+
+    -- Re-apply custom styling
+    ReplaceBlizzardPetFrame()
+
+    -- Force PetFrame_Update to trigger our hooked OnPetFrameUpdate
+    if PetFrame_Update then
+        PetFrame_Update(PetFrame)
+    end
+
+    -- Final pass: override any state Blizzard may have restored
+    if PetFrameTexture then
+        PetFrameTexture:SetTexture('')
+        PetFrameTexture:Hide()
+    end
+
+    if PetPortrait then
+        PetPortrait:ClearAllPoints()
+        PetPortrait:SetPoint("LEFT", 6, 0)
+        PetPortrait:SetSize(34, 34)
+        PetPortrait:SetDrawLayer('ARTWORK', 0)
+        PetPortrait:Show()
+        if SetPortraitTexture then
+            SetPortraitTexture(PetPortrait, "pet")
+        elseif PetPortrait.SetPortraitToUnit then
+            PetPortrait:SetPortraitToUnit("pet")
+        end
+    end
+
+    if moduleState.frame.background then
+        moduleState.frame.background:ClearAllPoints()
+        if PetPortrait then
+            moduleState.frame.background:SetPoint('LEFT', PetPortrait, 'CENTER', -24, -10)
+        end
+        moduleState.frame.background:Show()
+    end
+
+    if moduleState.frame.border then
+        moduleState.frame.border:ClearAllPoints()
+        if PetPortrait then
+            moduleState.frame.border:SetPoint('LEFT', PetPortrait, 'CENTER', -24, -10)
+        end
+        moduleState.frame.border:Show()
+    end
+
+    HideBlizzardPetTexts()
+end
+
+-- Polling frame for responsive portrait detection (checks every frame)
+local portraitPollFrame = CreateFrame("Frame")
+local POLL_TIMEOUT = 5.0
+
+local function StartPortraitPolling()
+    if not UnitExists("pet") or portraitPollFrame.polling then return end
+    portraitPollFrame.elapsed = 0
+    portraitPollFrame.lastTick = 0
+    portraitPollFrame.polling = true
+    portraitPollFrame:Show()
+    ForceShowPetFrame()
+end
+
+local function StopPortraitPolling()
+    portraitPollFrame.polling = false
+    portraitPollFrame:Hide()
+end
+
+portraitPollFrame:Hide()
+portraitPollFrame:SetScript("OnUpdate", function(self, elapsed)
+    if not portraitPollFrame.polling then
+        self:Hide()
+        return
+    end
+
+    if not UnitExists("pet") then
+        StopPortraitPolling()
+        return
+    end
+
+    self.elapsed = self.elapsed + elapsed
+    if self.elapsed > POLL_TIMEOUT then
+        StopPortraitPolling()
+        return
+    end
+
+    local tick = self.elapsed < 0.5 and 0.05 or 0.15
+    local nextTick = (self.lastTick or 0) + tick
+    if self.elapsed >= nextTick then
+        self.lastTick = nextTick
+        ForceShowPetFrame()
+    end
+end)
+
+-- Keep the public name for external callers
+local function SchedulePetFrameRetries()
+    StartPortraitPolling()
+end
+
+-- ===============================================================
 -- EVENT HANDLING
 -- ===============================================================
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+-- Pet spawn/despawn tracking: ensures custom frame appears immediately on tame
+-- (Blizzard's PetFrame_Update hook alone may not fire reliably for hunter taming)
+eventFrame:RegisterEvent("UNIT_PET")
 -- Vehicle events for proper unit switching in PetFrame
 eventFrame:RegisterEvent("UNIT_ENTERED_VEHICLE")
 eventFrame:RegisterEvent("UNIT_EXITED_VEHICLE")
+-- Portrait update: fires when a unit's portrait image becomes available
+-- (critical for newly tamed pets where portrait data loads asynchronously)
+eventFrame:RegisterEvent("UNIT_PORTRAIT_UPDATE")
+-- Name update: fires when a unit's name becomes available
+eventFrame:RegisterEvent("UNIT_NAME_UPDATE")
 
 eventFrame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" and arg1 == "DragonUI" then
         PetFrameModule:OnEnable()
     elseif event == "PLAYER_ENTERING_WORLD" then
         PetFrameModule:PLAYER_ENTERING_WORLD()
-        -- Update unit on world enter (handles reloads)
         UpdatePetTextSystemUnit()
+        if UnitExists("pet") then
+            ForceShowPetFrame()
+        end
+    elseif event == "UNIT_PET" and arg1 == "player" then
+        -- Pet was summoned, dismissed, or tamed
+        if UnitExists("pet") then
+            ForceShowPetFrame()
+            -- Schedule multiple delayed retries to handle async
+            -- portrait loading and delayed PetFrame initialization
+            SchedulePetFrameRetries()
+        end
+    elseif (event == "UNIT_PORTRAIT_UPDATE" or event == "UNIT_NAME_UPDATE") and arg1 == "pet" then
+        -- Portrait or name data became available (critical for newly tamed pets)
+        ForceShowPetFrame()
+        -- Schedule retries to handle async texture loading for newly tamed pets
+        SchedulePetFrameRetries()
     elseif event == "UNIT_ENTERED_VEHICLE" and arg1 == "player" then
-        -- When player enters vehicle, PetFrame should show player as "pet"
         UpdatePetTextSystemUnit()
         OnPetFrameUpdate()
     elseif event == "UNIT_EXITED_VEHICLE" and arg1 == "player" then
-        -- When player exits vehicle, PetFrame should show actual pet again
         UpdatePetTextSystemUnit()
         OnPetFrameUpdate()
     end

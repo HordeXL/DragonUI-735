@@ -1,6 +1,6 @@
 local addon = select(2, ...);
 
--- Default values for new profiles (only used         bagsbar = { anchor = "BOTTOMRIGHT", posX = 1, posY = 41 },hen creating new profiles)
+-- Default values for new profiles (only used when creating new profiles)
 local defaults = {
     profile = {
         -- Widgets

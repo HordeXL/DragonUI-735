@@ -164,6 +164,10 @@ addon.initialize = function(self)
 	inject_api(object:CreateTexture())
 	inject_api(object:CreateFontString())
 
+	if not EnumerateFrames then
+		return
+	end
+
 	object = EnumerateFrames()
 
 	while object do

@@ -6,46 +6,25 @@ addon.core = LibStub("AceAddon-3.0"):NewAddon("DragonUI", "AceConsole-3.0", "Ace
 -- ============================================================================
 -- TEXTURE ATLAS SYSTEM (7.3.5 Compatibility)
 -- ============================================================================
--- DragonUI atlas data structure: {texture_path, width, height, left, right, top, bottom, horizTile, vertTile}
-local DRAGON_ATLAS = {
-    -- Bag system atlases (from atlas.lua) - bagmain2x refers to bagslots2x texture file
-    ["bag-main-2x"] = {"Interface\\AddOns\\DragonUI\\assets\\bagslots2x", nil, nil, 1/512, 97/512, 1/128, 97/128, false, false},
-    ["bag-main-highlight-2x"] = {"Interface\\AddOns\\DragonUI\\assets\\bagslots2x", nil, nil, 99/512, 195/512, 1/128, 97/128, false, false},
-    ["bag-arrow-2x"] = {"Interface\\AddOns\\DragonUI\\assets\\bagslots2x", nil, nil, 484/512, 504/512, 1/128, 33/128, false, false},
-    ["bag-arrow-invert-2x"] = {"Interface\\AddOns\\DragonUI\\Textures\\uicollapsebutton", nil, nil, 8/32, 28/32, 32/64, 62/64, false, false},
-    ["bag-border-2x"] = {"Interface\\AddOns\\DragonUI\\assets\\bagslots2x", 34, 34, 295/512, 356/512, 1/128, 62/128, false, false},
-    ["bag-border-empty-2x"] = {"Interface\\AddOns\\DragonUI\\assets\\bagslots2x", 34, 34, 295/512, 356/512, 64/128, 125/128, false, false},
-    ["bag-border-highlight-2x"] = {"Interface\\AddOns\\DragonUI\\assets\\bagslots2x", 40, 40, 358/512, 419/512, 1/128, 62/128, false, false},
-    ["bag-reagent-border-empty-2x"] = {"Interface\\AddOns\\DragonUI\\assets\\bagslots2x", 34, 34, 421/512, 482/512, 1/128, 62/128, false, false},
-    ["bag-reagent-border-2x"] = {"Interface\\AddOns\\DragonUI\\assets\\bagslots2key", nil, nil, 3/128, 63/128, 64/128, 125/128, false, false},
-    
-    -- Gryphon atlas (from atlas.lua)
-    ["ui-hud-actionbar-gryphon-left"] = {"Interface\\AddOns\\DragonUI\\assets\\uiactionbar2x_", 92, 92, 1/512, 357/512, 209/2048, 543/2048, false, false},
-    ["ui-hud-actionbar-gryphon-right"] = {"Interface\\AddOns\\DragonUI\\assets\\uiactionbar2x_", 92, 92, 1/512, 357/512, 545/2048, 879/2048, false, false},
-    ["ui-hud-actionbar-gryphon-flying-left"] = {"Interface\\AddOns\\DragonUI\\assets\\uiactionbar2x_flying", 80, 103, 1/256, 158/256, 149/2048, 342/2048, false, false},
-    ["ui-hud-actionbar-gryphon-flying-right"] = {"Interface\\AddOns\\DragonUI\\assets\\uiactionbar2x_flying", 80, 103, 1/256, 157/256, 539/2048, 732/2048, false, false},
-    ["ui-hud-actionbar-gryphon-thick-left"] = {"Interface\\AddOns\\DragonUI\\assets\\uiactionbar2x_new", 104.5, 96, 1/512, 357/512, 209/2048, 543/2048, false, false},
-    ["ui-hud-actionbar-gryphon-thick-right"] = {"Interface\\AddOns\\DragonUI\\assets\\uiactionbar2x_new", 104.5, 96, 1/512, 357/512, 545/2048, 879/2048, false, false},
-    ["ui-hud-actionbar-wyvern-thick-left"] = {"Interface\\AddOns\\DragonUI\\assets\\uiactionbar2x_new", 104.5, 96, 1/512, 357/512, 881/2048, 1215/2048, false, false},
-    ["ui-hud-actionbar-wyvern-thick-right"] = {"Interface\\AddOns\\DragonUI\\assets\\uiactionbar2x_new", 104.5, 96, 1/512, 357/512, 1217/2048, 1551/2048, false, false},
-}
+-- Atlas data is defined in utils/atlas.lua → addon.atlasinfo
+-- Atlas data structure: {texture_path, width, height, left, right, top, bottom, horizTile, vertTile}
 
 -- SetAtlas method for textures (mimics WoW 7.3.5+ SetAtlas API)
 local function SetAtlas(texture, atlasName, useAtlasSize)
-    if not atlasName or not DRAGON_ATLAS[atlasName] then
+    local atlas = addon.atlasinfo and addon.atlasinfo[atlasName]
+    if not atlasName or not atlas then
         texture:SetTexture(nil)
         return
     end
-    
-    local atlas = DRAGON_ATLAS[atlasName]
+
     local texPath, width, height, left, right, top, bottom, horizTile, vertTile = unpack(atlas)
-    
+
     texture:SetTexture(texPath)
     texture:SetTexCoord(left, right, top, bottom)
     texture:SetHorizTile(horizTile or false)
     texture:SetVertTile(vertTile or false)
-    
-    if useAtlasSize then
+
+    if useAtlasSize and width and height then
         texture:SetWidth(width)
         texture:SetHeight(height)
     end
@@ -367,15 +346,22 @@ function addon:RefreshConfig()
         end
     end
 
-    -- If some configurations failed, retry them after 2 seconds
+    -- If some configurations failed, retry them after 2 seconds (max 3 retries)
     if #failed > 0 then
-        addon.core:ScheduleTimer(function()
-            for _, funcName in ipairs(failed) do
-                if addon[funcName] then
-                    pcall(addon[funcName]);
+        local retryCount = addon._refreshRetryCount or 0
+        retryCount = retryCount + 1
+        addon._refreshRetryCount = retryCount
+        if retryCount <= 3 then
+            addon.core:ScheduleTimer(function()
+                for _, funcName in ipairs(failed) do
+                    if addon[funcName] then
+                        pcall(addon[funcName]);
+                    end
                 end
-            end
-        end, 2);
+            end, 2);
+        end
+    else
+        addon._refreshRetryCount = nil
     end
 end
 
