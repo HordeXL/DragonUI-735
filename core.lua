@@ -57,6 +57,112 @@ function addon:IsInClassHall(areaID)
     return addon.ORDER_HALL_AREA_IDS[areaID] == true
 end
 
+-- ===============================================================
+-- UNIFIED ORDER HALL COMMAND BAR MANAGER
+-- Ensures the bar only shows inside actual class halls, and
+-- provides a single point of control for all modules.
+-- Fixes hunter/rogue "walking out" cases where sub-zone changes
+-- don't trigger a loading screen and the bar can get stuck.
+-- ===============================================================
+local orderHallManager = {
+    initialized = false,
+    hideTimerHandle = nil,
+}
+
+local function CheckAndHideBarIfNeeded(source)
+    if not OrderHallCommandBar then return end
+    if not OrderHallCommandBar:IsShown() then return end
+
+    -- If we haven't hooked :Show() yet, do it now
+    -- (the bar might have been created after our init ran)
+    if not orderHallManager.hookedShow then
+        hooksecurefunc(OrderHallCommandBar, "Show", function()
+            C_Timer.After(0, function()
+                CheckAndHideBarIfNeeded("ShowHook")
+                addon:SendMessage("DRAGONUI_ORDER_HALL_CHANGED")
+            end)
+        end)
+        orderHallManager.hookedShow = true
+    end
+
+    local areaID = GetCurrentMapAreaID()
+    if not addon:IsInClassHall(areaID) then
+        OrderHallCommandBar:Hide()
+        if addon.DebugInfo then
+            addon:DebugInfo("OrderHallManager", string.format("资源条已隐藏 (来源: %s, areaID: %d)", source or "unknown", areaID or 0))
+        end
+        return true
+    end
+    return false
+end
+
+-- Schedules multiple retries to catch delayed bar shows (hunter/rogue fix)
+local function ScheduleBarChecks(source)
+    local delays = {0.1, 0.3, 0.5, 1.0, 1.5, 2.0}
+    for i, delay in ipairs(delays) do
+        C_Timer.After(delay, function()
+            CheckAndHideBarIfNeeded(source .. "[" .. i .. "]")
+            addon:SendMessage("DRAGONUI_ORDER_HALL_CHANGED")
+        end)
+    end
+end
+
+function addon:CheckOrderHallBar(source)
+    CheckAndHideBarIfNeeded(source or "api")
+    addon:SendMessage("DRAGONUI_ORDER_HALL_CHANGED")
+end
+
+function addon:ScheduleOrderHallChecks(source)
+    ScheduleBarChecks(source or "api")
+end
+
+local function InitializeOrderHallManager()
+    if orderHallManager.initialized then return end
+
+    local f = CreateFrame("Frame")
+    f:RegisterEvent("ZONE_CHANGED")
+    f:RegisterEvent("ZONE_CHANGED_INDOORS")
+    f:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+    f:RegisterEvent("PLAYER_ENTERING_WORLD")
+    f:RegisterEvent("ORDER_HALL_LANDING_PAGE_CLOSED")
+    f:RegisterEvent("ORDER_HALL_LANDING_PAGE_SHOWN")
+
+    f:SetScript("OnEvent", function(self, event, arg1)
+        if event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" then
+            -- Hunter / Rogue: sub-zone change with no loading screen
+            CheckAndHideBarIfNeeded(event)
+            ScheduleBarChecks(event)
+        elseif event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_ENTERING_WORLD" then
+            -- Full zone change with loading screen
+            ScheduleBarChecks(event)
+        elseif event == "ORDER_HALL_LANDING_PAGE_CLOSED" or event == "ORDER_HALL_LANDING_PAGE_SHOWN" then
+            -- After interacting with the landing page
+            ScheduleBarChecks(event)
+        end
+    end)
+
+    -- Also hook if the bar already exists (e.g. reload inside order hall)
+    if OrderHallCommandBar and not orderHallManager.hookedShow then
+        hooksecurefunc(OrderHallCommandBar, "Show", function()
+            C_Timer.After(0, function()
+                CheckAndHideBarIfNeeded("ShowHook")
+                addon:SendMessage("DRAGONUI_ORDER_HALL_CHANGED")
+            end)
+        end)
+        orderHallManager.hookedShow = true
+    end
+
+    -- Initial cleanup for /reload cases
+    C_Timer.After(0.5, function()
+        CheckAndHideBarIfNeeded("init")
+        addon:SendMessage("DRAGONUI_ORDER_HALL_CHANGED")
+    end)
+
+    orderHallManager.initialized = true
+end
+
+addon.InitializeOrderHallManager = InitializeOrderHallManager
+
 -- Function to recursively copy tables
 local function deepCopy(source, target)
     for key, value in pairs(source) do
@@ -185,15 +291,12 @@ function addon.core:OnEnable()
     self:RegisterChatCommand("dragonui", "SlashCommand");
     self:RegisterChatCommand("pi", "SlashCommand");
 
-    -- Cleanup OrderHallCommandBar after /reload (runs after all modules initialized)
-    C_Timer.After(0.5, function()
-        if OrderHallCommandBar and OrderHallCommandBar:IsShown() then
-            local areaID = GetCurrentMapAreaID()
-            if not addon:IsInClassHall(areaID) then
-                OrderHallCommandBar:Hide()
-            end
-        end
-    end)
+    -- Initialize unified Order Hall Command Bar manager
+    -- (replaces the old per-module logic with a single robust system
+    --  that properly handles hunter/rogue sub-zone transitions)
+    if addon.InitializeOrderHallManager then
+        addon.InitializeOrderHallManager()
+    end
 
     -- Fire custom event to signal that DragonUI is fully initialized
     -- This ensures modules get the correct config values
