@@ -484,14 +484,6 @@ local function RestoreAllButtons()
         end
     end
     
-    -- Restore vehicle buttons
-    for index=1, VEHICLE_MAX_ACTIONBUTTONS do
-        local button = _G['OverrideActionBarButton'..index]
-        if button then
-            RestoreButtonToOriginal(button)
-        end
-    end
-    
     -- Restore possess buttons
     for index=1, NUM_POSSESS_SLOTS do
         local button = _G['PossessButton'..index]
@@ -696,34 +688,6 @@ end
 -- TEMPLATE FUNCTIONS
 -- ============================================================================
 
--- setup vehicle action buttons
-function addon.vehiclebuttons_template()
-    if not IsModuleEnabled() then return end
-    
-	local hasVehicleUI = UnitHasVehicleUI('player')
-	-- 检查是否有载具UI或覆盖动作条（优先检查按钮是否存在）
-	local hasOverrideBar = false
-	local maxButtons = VEHICLE_MAX_ACTIONBUTTONS or 6
-	for index = 1, maxButtons do
-		local button = _G['OverrideActionBarButton'..index]
-		if button then
-			hasOverrideBar = true
-			break
-		end
-	end
-	
-	if hasVehicleUI or hasOverrideBar then
-		for index=1, maxButtons do
-			local button = _G['OverrideActionBarButton'..index]
-			if button then
-				main_buttons(button)
-				-- Aplicar formato de hotkeys también a vehicle buttons
-				actionbuttons_hotkey(button)
-			end
-		end
-	end
-end
-
 -- setup possess buttons
 function addon.possessbuttons_template()
     if not IsModuleEnabled() then return end
@@ -828,7 +792,6 @@ function addon.RefreshButtonStyling()
         ApplyButtonStyling()
         
         -- Refresh all templates
-        addon.vehiclebuttons_template()
         addon.possessbuttons_template()
         addon.petbuttons_template()
         addon.stancebuttons_template()
@@ -922,24 +885,6 @@ initFrame:SetScript("OnEvent", function(self, event, addonName)
             for button in addon.buttons_iterator() do
                 if button then
                     actionbuttons_hotkey(button)
-                end
-            end
-            
-            -- Vehicle buttons - 检查按钮是否存在
-            local hasVehicleUI = UnitHasVehicleUI('player')
-            local hasOverrideBar = false
-            for index = 1, VEHICLE_MAX_ACTIONBUTTONS or 6 do
-                if _G['OverrideActionBarButton'..index] then
-                    hasOverrideBar = true
-                    break
-                end
-            end
-            if hasVehicleUI or hasOverrideBar then
-                for index=1, VEHICLE_MAX_ACTIONBUTTONS do
-                    local button = _G['OverrideActionBarButton'..index]
-                    if button then
-                        actionbuttons_hotkey(button)
-                    end
                 end
             end
             
