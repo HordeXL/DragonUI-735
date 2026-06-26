@@ -376,7 +376,7 @@ local defaults = {
                 showManaTextAlways = false,
                 enableThreatGlow = false,
                 scale = 1.0,
-                override = true
+                override = false
 
             },
             party = {

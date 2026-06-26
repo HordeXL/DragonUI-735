@@ -3192,8 +3192,8 @@ function addon:CreateOptionsTable()
                             },
                             override = {
                                 type = 'toggle',
-                                name = "强制位置",
-                                desc = "允许自由移动宠物框体。如果不勾选，它将相对于玩家框体定位。",
+                                name = "自由拖动",
+                                desc = "勾选后可直接拖拽宠物框体到任意位置。不勾选则跟随玩家框体定位。",
                                 get = function()
                                     return addon.db.profile.unitframe.pet.override
                                 end,
