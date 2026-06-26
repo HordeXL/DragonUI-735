@@ -41,11 +41,10 @@ local framesToDisable = {
     -- 其他相关
     ActionBarDownButton,      -- 动作条向下按钮
     ActionBarUpButton,        -- 动作条向上按钮
-    MainMenuBarVehicleLeaveButton, -- 载具离开按钮（由vehicle.lua接管）
-    OverrideActionBarExpBar,  -- 载具经验条
-    OverrideActionBarHealthBar, -- 载具血条
-    OverrideActionBarPowerBar,  -- 载具能量条
-    OverrideActionBarPitchFrame, -- 载具俯仰框体
+    -- 以下暴雪载具框架全部保留，由暴雪原生代码管理显示
+    -- MainMenuBarVehicleLeaveButton, -- 载具离开按钮
+    -- OverrideActionBarExpBar,  -- 载具经验条
+    -- OverrideActionBarPitchFrame, -- 载具俯仰框体
 
     -- ⭐ NDui参考：禁用状态追踪管理器
     -- 这是暴雪控制经验条/声望条/神器能量条显示的核心管理器

@@ -207,8 +207,9 @@ local function PositionPossessButtons()
         -- Para chamanes: siempre visible (totems y possess)
         visibilityCondition = 'show'
     else
-        -- Para otros: ocultar en vehículo, mostrar cuando no
-        visibilityCondition = '[vehicleui][@vehicle,exists] hide; show'
+        -- Para otros: ocultar en vehículo normal, mostrar en overridebar o cuando no hay vehículo
+        -- [overridebar] 用于覆盖动作条（如植物大战僵尸等小游戏）
+        visibilityCondition = '[overridebar] show; [vehicleui][@vehicle,exists] hide; show'
     end
 
     RegisterStateDriver(possessbar, 'visibility', visibilityCondition)

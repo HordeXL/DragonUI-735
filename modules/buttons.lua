@@ -700,8 +700,19 @@ end
 function addon.vehiclebuttons_template()
     if not IsModuleEnabled() then return end
     
-	if UnitHasVehicleUI('player') then
-		local maxButtons = VEHICLE_MAX_ACTIONBUTTONS or 6
+	local hasVehicleUI = UnitHasVehicleUI('player')
+	-- 检查是否有载具UI或覆盖动作条（优先检查按钮是否存在）
+	local hasOverrideBar = false
+	local maxButtons = VEHICLE_MAX_ACTIONBUTTONS or 6
+	for index = 1, maxButtons do
+		local button = _G['OverrideActionBarButton'..index]
+		if button then
+			hasOverrideBar = true
+			break
+		end
+	end
+	
+	if hasVehicleUI or hasOverrideBar then
 		for index=1, maxButtons do
 			local button = _G['OverrideActionBarButton'..index]
 			if button then
@@ -914,8 +925,16 @@ initFrame:SetScript("OnEvent", function(self, event, addonName)
                 end
             end
             
-            -- Vehicle buttons
-            if UnitHasVehicleUI('player') then
+            -- Vehicle buttons - 检查按钮是否存在
+            local hasVehicleUI = UnitHasVehicleUI('player')
+            local hasOverrideBar = false
+            for index = 1, VEHICLE_MAX_ACTIONBUTTONS or 6 do
+                if _G['OverrideActionBarButton'..index] then
+                    hasOverrideBar = true
+                    break
+                end
+            end
+            if hasVehicleUI or hasOverrideBar then
                 for index=1, VEHICLE_MAX_ACTIONBUTTONS do
                     local button = _G['OverrideActionBarButton'..index]
                     if button then
