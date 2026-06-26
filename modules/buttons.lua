@@ -565,6 +565,18 @@ local function actionbuttons_update(button)
 	
 	button:SetNormalTexture(config.assets.normal);
 	
+	-- Re-apply full DragonUI styling that main_buttons() originally set
+	-- (ActionButton_Update does not restore these on re-entry, and
+	-- main_buttons() only runs once due to button.__styled guard)
+	local normalTexture = _G[name..'NormalTexture']
+	if normalTexture then
+		normalTexture:ClearAllPoints()
+		normalTexture:SetPoint('TOPRIGHT', button, 2.2, 2.3)
+		normalTexture:SetPoint('BOTTOMLEFT', button, -2.2, -2.2)
+		normalTexture:SetDrawLayer('OVERLAY')
+	end
+	button:SetHighlightTexture(config.assets.highlight)
+	
 	-- 强制显示边框纹理颜色（不依赖alwaysShowActionBars或ShowGrid触发）
 	local normalTexture = _G[name..'NormalTexture']
 	if normalTexture then
