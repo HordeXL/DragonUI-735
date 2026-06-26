@@ -550,16 +550,13 @@ local function actionbuttons_update(button)
 	local name = button:GetName();
 	if name:find('MultiCast') then return; end
 	
-	-- Skip when in vehicle: vehicle skills use regular ActionButton frames
-	-- via action bar paging, but DragonUI does not theme vehicle UI.
-	-- ActionButton_Update only resets the NormalTexture (icon), so we must
-	-- clear ALL DragonUI-applied textures (checked/pushed/highlight/background)
-	-- to fully restore Blizzard's default vehicle button appearance.
+	-- Skip when in vehicle: DragonUI does not theme vehicle UI.
+	-- ActionButton_Update has already set Blizzard's textures (icon etc.)
+	-- by this point (hook runs after original function), so we just
+	-- return early to avoid re-applying DragonUI textures.
+	-- ⚠️ Do NOT call SetXxxTexture(nil) — that destroys texture objects
+	-- that main_buttons() / GetCheckedTexture() need on vehicle exit.
 	if UnitHasVehicleUI and UnitHasVehicleUI("player") then
-		button:SetNormalTexture(nil)
-		button:SetCheckedTexture(nil)
-		button:SetPushedTexture(nil)
-		button:SetHighlightTexture(nil)
 		return
 	end
 	
@@ -941,22 +938,30 @@ initFrame:SetScript("OnEvent", function(self, event, arg1)
             
         end
     elseif event == "UNIT_ENTERED_VEHICLE" and arg1 == "player" then
-        -- Strip DragonUI textures from action buttons when entering vehicle
-        if IsModuleEnabled() then
-            for button in addon.buttons_iterator() do
-                if button then
-                    button:SetNormalTexture(nil)
-                    button:SetCheckedTexture(nil)
-                    button:SetPushedTexture(nil)
-                    button:SetHighlightTexture(nil)
-                end
-            end
-        end
+        -- No need to strip textures here: Blizzard's ActionButton_Update
+        -- (triggered by vehicle paging) replaces NormalTexture with the
+        -- vehicle icon. The actionbuttons_update hook returns early in
+        -- vehicle mode, so DragonUI textures stay dormant.
+        -- ⚠️ Do NOT call SetXxxTexture(nil) — that destroys the texture
+        -- objects, and main_buttons() on exit needs GetCheckedTexture()
+        -- etc. to return valid objects for set_atlas() calls.
     elseif event == "UNIT_EXITED_VEHICLE" and arg1 == "player" then
-        -- Re-apply DragonUI styling after exiting vehicle
+        -- Re-apply full DragonUI styling after exiting vehicle.
+        -- Clear __styled flag so main_buttons() re-runs completely,
+        -- restoring flash, icon texcoord, cooldown positioning, etc.
         if IsModuleEnabled() then
-            addon.actionbuttons_grid()
-            addon.RefreshButtons()
+            if InCombatLockdown() then
+                ButtonsModule.pendingRefresh = true
+            else
+                for button in addon.buttons_iterator() do
+                    if button then
+                        button.__styled = nil
+                    end
+                end
+                ApplyButtonStyling()
+                addon.actionbuttons_grid()
+                addon.RefreshButtons()
+            end
         end
     end
 end)
