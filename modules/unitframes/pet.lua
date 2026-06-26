@@ -14,6 +14,7 @@ local UIParent = UIParent
 local UnitExists = UnitExists
 local UnitPowerType = UnitPowerType
 local hooksecurefunc = hooksecurefunc
+local PlayerFrame = _G.PlayerFrame
 
 -- ===============================================================
 -- MODULE CONSTANTS
@@ -136,9 +137,11 @@ local function ApplyFramePositioning()
         )
         PetFrame:SetMovable(true)
         PetFrame:EnableMouse(true)
-        
+
     else
-        
+        -- 相对玩家框体定位：宠物框体左上角对齐玩家框体右上角，带小偏移
+        PetFrame:ClearAllPoints()
+        PetFrame:SetPoint("TOPLEFT", PlayerFrame, "TOPRIGHT", 5, 0)
     end
 end
 
@@ -565,9 +568,13 @@ end
 -- REFRESH FUNCTION FOR OPTIONS
 -- ===============================================================
 function addon.RefreshPetFrame()
+    -- 重新应用定位（无论是否有宠物，确保框体位置正确）
+    if PetFrameModule.UpdateWidgets then
+        PetFrameModule:UpdateWidgets()
+    end
+    
     if UnitExists("pet") then
         OnPetFrameUpdate()
-        
     end
 end
 
@@ -825,8 +832,17 @@ local function ApplyWidgetPosition()
     end
     
     local widgetConfig = addon.db.profile.widgets.pet
+    local petConfig = addon.db.profile.unitframe.pet
     
-    if widgetConfig and widgetConfig.posX and widgetConfig.posY then
+    if petConfig and not petConfig.override then
+        --  "相对玩家框体定位"模式：宠物锚点跟随玩家框体位置
+        local anchor = (widgetConfig and widgetConfig.anchor) or "TOPLEFT"
+        local posX = (widgetConfig and widgetConfig.posX) or 43
+        local posY = (widgetConfig and widgetConfig.posY) or -90
+        PetFrameModule.anchor:ClearAllPoints()
+        PetFrameModule.anchor:SetPoint(anchor, PlayerFrame, "TOPRIGHT", posX, posY)
+        
+    elseif widgetConfig and widgetConfig.posX and widgetConfig.posY then
         local anchor = widgetConfig.anchor or "TOPRIGHT"
         PetFrameModule.anchor:ClearAllPoints()
         PetFrameModule.anchor:SetPoint(anchor, UIParent, anchor, widgetConfig.posX, widgetConfig.posY)
