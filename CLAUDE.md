@@ -49,7 +49,7 @@ Each module is a self-contained Lua file that:
 
 ### Key Module Categories
 
-- **Action bars**: noop.lua (hides Blizzard frames), buttons.lua, mainbars.lua, cooldowns.lua, stance.lua, vehicle.lua, petbar.lua, multicast.lua
+- **Action bars**: noop.lua (hides Blizzard frames), buttons.lua, mainbars.lua, cooldowns.lua, stance.lua, petbar.lua, multicast.lua
 - **Unit frames**: modules/unitframes/ — player, target, focus, party, pet, ToT, ToF (each a separate file)
 - **Other UI**: micromenu.lua, minimap.lua, castbar.lua, auras.lua, BuffFrame.lua, questtracker.lua, gamemenu.lua
 - **Systems**: editor_mode.lua (drag-and-drop repositioning), keybinding.lua (LibKeyBound integration), compatibility.lua (addon conflict detection)

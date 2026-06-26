@@ -110,10 +110,6 @@ setmetatable(addon.config, {
 					local nested_proxy = {};
 					setmetatable(nested_proxy, {
 						__index = function(npt, nkey)
-							-- Handle vehicle position as static
-							if section == "additional" and key == "vehicle" and nkey == "position" then
-								return {'BOTTOMLEFT', -52, 0};
-							end
 							return addon.db and addon.db.profile[section][key][nkey];
 						end
 					});

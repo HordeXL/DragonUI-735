@@ -41,8 +41,8 @@ local function ApplyNoopChanges()
         MainMenuBar,
         MainMenuBarArtFrame,
         MainMenuBarOverlayFrame,
-        VehicleMenuBar,
-        -- VehicleMenuBarArtFrame,
+        -- VehicleMenuBar,           -- DragonUI no longer manages vehicles
+        -- VehicleMenuBarArtFrame,   -- let Blizzard handle vehicle UI natively
         -- PossessBarFrame,
         PossessBackground1,
         PossessBackground2,

@@ -394,14 +394,6 @@ function addon:RefreshConfig()
             table.insert(failed, "RefreshPetbar")
         end
     end
-
-    if addon.RefreshVehicle then
-        local success, err = pcall(addon.RefreshVehicle);
-        if not success then
-            table.insert(failed, "RefreshVehicle")
-        end
-    end
-
     if addon.RefreshMulticast then
         local success, err = pcall(addon.RefreshMulticast);
         if not success then

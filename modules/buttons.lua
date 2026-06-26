@@ -549,6 +549,20 @@ local function actionbuttons_update(button)
 	if not button then return; end
 	local name = button:GetName();
 	if name:find('MultiCast') then return; end
+	
+	-- Skip when in vehicle: vehicle skills use regular ActionButton frames
+	-- via action bar paging, but DragonUI does not theme vehicle UI.
+	-- ActionButton_Update only resets the NormalTexture (icon), so we must
+	-- clear ALL DragonUI-applied textures (checked/pushed/highlight/background)
+	-- to fully restore Blizzard's default vehicle button appearance.
+	if UnitHasVehicleUI and UnitHasVehicleUI("player") then
+		button:SetNormalTexture(nil)
+		button:SetCheckedTexture(nil)
+		button:SetPushedTexture(nil)
+		button:SetHighlightTexture(nil)
+		return
+	end
+	
 	button:SetNormalTexture(config.assets.normal);
 	
 	-- 强制显示边框纹理颜色（不依赖alwaysShowActionBars或ShowGrid触发）
@@ -753,6 +767,11 @@ local function SetupHooks()
         local buttonName = button:GetName()
         if not buttonName then return end
         
+        -- Skip vehicle action buttons (DragonUI does not theme vehicle UI)
+        -- Vehicle skills use regular ActionButton frames via action bar paging,
+        -- so we must check vehicle state rather than button name.
+        if UnitHasVehicleUI and UnitHasVehicleUI("player") then return end
+        
         local db = GetButtonsConfig()
         
         -- cache border color on first access
@@ -867,8 +886,10 @@ local initFrame = CreateFrame("Frame")
 initFrame:RegisterEvent("ADDON_LOADED")
 initFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 initFrame:RegisterEvent("UPDATE_BINDINGS")  -- CLAVE: Actualizar hotkeys cuando cambien los bindings
-initFrame:SetScript("OnEvent", function(self, event, addonName)
-    if event == "ADDON_LOADED" and addonName == "DragonUI" then
+initFrame:RegisterEvent("UNIT_ENTERED_VEHICLE")
+initFrame:RegisterEvent("UNIT_EXITED_VEHICLE")
+initFrame:SetScript("OnEvent", function(self, event, arg1)
+    if event == "ADDON_LOADED" and arg1 == "DragonUI" then
         Initialize()
         self:UnregisterEvent("ADDON_LOADED")
     elseif event == "PLAYER_REGEN_ENABLED" then
@@ -906,13 +927,24 @@ initFrame:SetScript("OnEvent", function(self, event, addonName)
                 end
             end
             
-            -- Possess buttons
-            for index=1, NUM_POSSESS_SLOTS do
-                local button = _G['PossessButton'..index]
+        end
+    elseif event == "UNIT_ENTERED_VEHICLE" and arg1 == "player" then
+        -- Strip DragonUI textures from action buttons when entering vehicle
+        if IsModuleEnabled() then
+            for button in addon.buttons_iterator() do
                 if button then
-                    actionbuttons_hotkey(button)
+                    button:SetNormalTexture(nil)
+                    button:SetCheckedTexture(nil)
+                    button:SetPushedTexture(nil)
+                    button:SetHighlightTexture(nil)
                 end
             end
+        end
+    elseif event == "UNIT_EXITED_VEHICLE" and arg1 == "player" then
+        -- Re-apply DragonUI styling after exiting vehicle
+        if IsModuleEnabled() then
+            addon.actionbuttons_grid()
+            addon.RefreshButtons()
         end
     end
 end)

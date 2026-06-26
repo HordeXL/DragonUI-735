@@ -235,10 +235,6 @@ local defaults = {
 
                 grid = false -- Disable grid by default (matches original Dragonflight port)
             },
-            vehicle = {
-                x_position = -40,
-                artstyle = true
-            },
             totem = {
                 x_position = -113,
                 y_offset = 0 -- Additional Y offset for fine-tuning position
@@ -439,9 +435,6 @@ local defaults = {
             },
             buttons = {
                 enabled = true -- Apply DragonUI button styling and enhancements
-            },
-            vehicle = {
-                enabled = true -- Apply DragonUI vehicle interface enhancements
             },
             stance = {
                 enabled = true -- Apply DragonUI stance/shapeshift bar positioning and styling

@@ -11,7 +11,6 @@
     <Script file="cooldowns.lua"/>
     <Script file="mainbars.lua"/>
     <Script file="stance.lua"/>
-    <Script file="vehicle.lua"/>
     <Script file="petbar.lua"/>
     <Script file="multicast.lua"/>
     

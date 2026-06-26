@@ -186,7 +186,6 @@ function addon:CreateOptionsTable()
                             end
 
                             return (modules.mainbars and modules.mainbars.enabled) and
-                                       (modules.vehicle and modules.vehicle.enabled) and
                                        (modules.stance and modules.stance.enabled) and
                                        (modules.petbar and modules.petbar.enabled) and
                                        (modules.multicast and modules.multicast.enabled) and
@@ -198,7 +197,7 @@ function addon:CreateOptionsTable()
                                 addon.db.profile.modules = {}
                             end
                             -- Initialize all module tables if they don't exist and set their enabled state
-                            local moduleNames = {"mainbars", "vehicle", "stance", "petbar", "multicast", "buttons",
+                            local moduleNames = {"mainbars", "stance", "petbar", "multicast", "buttons",
                                                  "noop"}
                             for _, moduleName in ipairs(moduleNames) do
                                 if not addon.db.profile.modules[moduleName] then
@@ -1193,9 +1192,6 @@ function addon:CreateOptionsTable()
                                     if addon.RefreshPetbar then
                                         addon.RefreshPetbar()
                                     end
-                                    if addon.RefreshVehicle then
-                                        addon.RefreshVehicle()
-                                    end
                                     if addon.RefreshMulticast then
                                         addon.RefreshMulticast()
                                     end
@@ -1220,9 +1216,6 @@ function addon:CreateOptionsTable()
                                     end
                                     if addon.RefreshPetbar then
                                         addon.RefreshPetbar()
-                                    end
-                                    if addon.RefreshVehicle then
-                                        addon.RefreshVehicle()
                                     end
                                     if addon.RefreshMulticast then
                                         addon.RefreshMulticast()
@@ -1356,52 +1349,6 @@ function addon:CreateOptionsTable()
                                 }
                             },
 
-                            -- BOTTOM ROW: VEHICLE AND TOTEM
-                            vehicle_group = {
-                                type = 'group',
-                                name = "载具条",
-                                desc = "所有职业(载具/特殊坐骑)",
-                                inline = true,
-                                order = 3,
-                                args = {
-                                    x_position = {
-                                        type = 'range',
-                                        name = "X位置",
-                                        desc = "载具条的水平位置",
-                                        min = -500,
-                                        max = 500,
-                                        step = 1,
-                                        get = function()
-                                            return (addon.db.profile.additional.vehicle and
-                                                       addon.db.profile.additional.vehicle.x_position) or 0
-                                        end,
-                                        set = function(info, value)
-                                            addon.db.profile.additional.vehicle.x_position = value
-                                            if addon.RefreshVehicle then
-                                                addon.RefreshVehicle()
-                                            end
-                                        end,
-                                        order = 1,
-                                        width = "double"
-                                    },
-                                    artstyle = {
-                                        type = 'toggle',
-                                        name = "暴雪艺术风格",
-                                        desc = "使用暴雪原始动作条艺术风格",
-                                        get = function()
-                                            return addon.db.profile.additional.vehicle.artstyle
-                                        end,
-                                        set = function(info, value)
-                                            addon.db.profile.additional.vehicle.artstyle = value
-                                            if addon.RefreshVehicle then
-                                                addon.RefreshVehicle()
-                                            end
-                                        end,
-                                        order = 2,
-                                        width = "full"
-                                    }
-                                }
-                            },
                             -- EXTRA ACTION BUTTON GROUP
                             extraaction_group = {
                                 type = 'group',
