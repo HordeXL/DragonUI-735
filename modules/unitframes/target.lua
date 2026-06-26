@@ -545,6 +545,10 @@ local function InitializeFrame()
             hideTest = HideTargetFrameTest,         --  NUEVO: Ocultar frame fake
             onHide = function()
                 ApplyWidgetPosition() -- Aplicar nueva configuración al salir del editor
+                -- 同步更新目标的目标(ToT)锚点位置
+                if addon.TargetOfTarget and addon.TargetOfTarget.UpdateAnchorToTarget then
+                    addon.TargetOfTarget.UpdateAnchorToTarget()
+                end
             end,
             module = Module
         })

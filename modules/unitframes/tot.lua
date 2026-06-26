@@ -235,10 +235,16 @@ local function CreateToTFrame()
     eliteTex:Hide()
     Module.elite = eliteTex
 
-    -- Position relative to TargetFrame (anchored to BOTTOMLEFT)
+    -- Position
     local config = GetConfig()
     f:ClearAllPoints()
-    f:SetPoint(config.anchor or "BOTTOMLEFT", _G.TargetFrame or UIParent, config.anchorParent or "BOTTOMLEFT", config.x or -50, config.y or -30)
+    if config.override then
+        -- 自由拖动模式：绝对定位
+        f:SetPoint(config.anchor or "TOPLEFT", UIParent, config.anchorParent or "TOPLEFT", config.x or 300, config.y or -100)
+    else
+        -- 跟随目标框体模式：相对于 TargetFrame 定位
+        f:SetPoint(config.anchor or "BOTTOMLEFT", _G.TargetFrame or UIParent, config.anchorParent or "BOTTOMLEFT", config.x or -50, config.y or -30)
+    end
     f:SetScale(config.scale or 1.0)
 
     Module.frame = f
@@ -249,6 +255,28 @@ local function CreateToTFrame()
     end
 
     Module.configured = true
+
+    -- 添加拖动保存（仅一次）
+    if not Module.dragSaveHooked then
+        Module.dragSaveHooked = true
+        f:HookScript("OnDragStop", function(self)
+            self:StopMovingOrSizing()
+            if InCombatLockdown() then return end
+            local cfg = addon.db and addon.db.profile.unitframe.tot
+            if not cfg then return end
+            if cfg.override then
+                -- 自由拖动模式：保存绝对位置
+                local point, _, relativePoint, x, y = self:GetPoint(1)
+                if point then
+                    cfg.x = math.floor((x or 0) + 0.5)
+                    cfg.y = math.floor((y or 0) + 0.5)
+                    cfg.anchor = point
+                    cfg.anchorParent = relativePoint or "TOPLEFT"
+                    cfg.anchorFrame = nil
+                end
+            end
+        end)
+    end
 end
 
 -- ============================================================================
@@ -284,21 +312,54 @@ local function UpdateToT()
         end
     end
 
-    -- Position relative to TargetFrame
+    -- 位置：切换模式时动态计算偏移以保持屏幕位置不变
     local config = GetConfig()
     local targetFrame = _G.TargetFrame
+
+    local lastOverride = Module.lastOverride
+    Module.lastOverride = config.override
+
+    if lastOverride ~= nil and lastOverride ~= config.override then
+        -- 检测到模式切换，计算新偏移
+        local totLeft, totTop = f:GetLeft(), f:GetTop()
+        if totLeft and totTop then
+            if config.override then
+                -- 切换到自由拖动：从相对偏移转为绝对坐标
+                config.x = math.floor(totLeft + 0.5)
+                config.y = math.floor(totTop - UIParent:GetHeight() + 0.5)
+                config.anchor = "TOPLEFT"
+                config.anchorParent = "TOPLEFT"
+            elseif targetFrame then
+                -- 切换到跟随模式：从绝对坐标转为相对 TargetFrame BOTTOMLEFT 的偏移
+                local totBottom = f:GetBottom()
+                local tfLeft, tfBottom = targetFrame:GetLeft(), targetFrame:GetBottom()
+                if totBottom and tfLeft and tfBottom then
+                    config.x = math.floor(totLeft - tfLeft + 0.5)
+                    config.y = math.floor(totBottom - tfBottom + 0.5)
+                    config.anchor = "BOTTOMLEFT"
+                    config.anchorParent = "BOTTOMLEFT"
+                end
+            end
+        end
+    end
 
     -- 检查是否在编辑模式（再次获取，确保一致性）
     -- isInEditMode 已在上方定义
     
-    if isInEditMode and Module.totFrame then
-        -- 编辑模式：根据编辑锚点帧的位置来定位实际 ToT 框体
-        local point, relativeTo, relativePoint, xOfs, yOfs = Module.totFrame:GetPoint(1)
-        if relativeTo then
+    if isInEditMode and Module.totFrame and not config.override then
+        -- 编辑模式（非自由拖动）：跟随目标框体（实时更新）
+        if targetFrame then
             f:ClearAllPoints()
-            f:SetPoint("CENTER", Module.totFrame, "CENTER", 0, 0)
+            f:SetPoint(config.anchor or "BOTTOMLEFT", targetFrame, config.anchorParent or "BOTTOMLEFT", config.x or 150, config.y or -30)
             f:SetScale(config.scale or 1.0)
         end
+    elseif config.override then
+        -- 自由拖动模式：绝对定位（可拖动）
+        f:ClearAllPoints()
+        f:SetPoint(config.anchor or "TOPLEFT", UIParent, config.anchorParent or "TOPLEFT", config.x or 300, config.y or -100)
+        f:SetScale(config.scale or 1.0)
+        f:SetMovable(true)
+        f:EnableMouse(true)
     elseif targetFrame then
         -- 正常模式：相对于 TargetFrame 定位
         f:ClearAllPoints()
@@ -607,6 +668,12 @@ addon.TargetOfTarget = {
     Reset = ResetFrame,
     anchor = function() return Module.totFrame end,
     ChangeToTFrame = RefreshFrame,
+    -- 目标框体移动后同步 ToT 锚点位置
+    UpdateAnchorToTarget = function()
+        if Module.configured then
+            UpdateAnchorFromTotConfig(GetConfig())
+        end
+    end,
 }
 
 addon.unitframe = addon.unitframe or {}

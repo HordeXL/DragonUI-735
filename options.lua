@@ -2847,6 +2847,21 @@ function addon:CreateOptionsTable()
                                 end,
                                 order = 2
                             },
+                            override = {
+                                type = 'toggle',
+                                name = "自由拖动",
+                                desc = "勾选后可直接拖拽目标的目标框体到任意位置。不勾选则跟随目标框体定位。",
+                                get = function()
+                                    return addon.db.profile.unitframe.tot.override
+                                end,
+                                set = function(info, value)
+                                    addon.db.profile.unitframe.tot.override = value
+                                    if addon.TargetOfTarget and addon.TargetOfTarget.RefreshToTFrame then
+                                        addon.TargetOfTarget.RefreshToTFrame()
+                                    end
+                                end,
+                                order = 3
+                            },
                             x = {
                                 type = 'range',
                                 name = "横向位置",
@@ -2863,7 +2878,7 @@ function addon:CreateOptionsTable()
                                         addon.TargetOfTarget.RefreshToTFrame()
                                     end
                                 end,
-                                order = 3
+                                order = 5
                             },
                             y = {
                                 type = 'range',
@@ -2881,7 +2896,7 @@ function addon:CreateOptionsTable()
                                         addon.TargetOfTarget.RefreshToTFrame()
                                     end
                                 end,
-                                order = 4
+                                order = 6
                             }
                         }
                     },
