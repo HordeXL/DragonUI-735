@@ -836,11 +836,36 @@ local function ApplyWidgetPosition()
     
     if petConfig and not petConfig.override then
         --  "相对玩家框体定位"模式：宠物锚点跟随玩家框体位置
-        local anchor = (widgetConfig and widgetConfig.anchor) or "TOPLEFT"
-        local posX = (widgetConfig and widgetConfig.posX) or 43
-        local posY = (widgetConfig and widgetConfig.posY) or -90
+        --  动态计算偏移使得切换模式时屏幕位置不变
+        local petLeft = PetFrameModule.anchor:GetLeft()
+        local petTop = PetFrameModule.anchor:GetTop()
+        local playerRight = PlayerFrame:GetRight()
+        local playerTop = PlayerFrame:GetTop()
+
+        local offsetX, offsetY
+        if petLeft and petTop and playerRight and playerTop
+           and (math.abs(petLeft) > 1 or math.abs(petTop) > 1) then
+            -- 根据锚点当前屏幕位置和 PlayerFrame 位置计算相对偏移
+            -- 使用 GetLeft/GetTop（同 SetPoint 坐标系，正Y向上）
+            offsetX = petLeft - playerRight
+            offsetY = petTop - playerTop
+        else
+            -- 回退到已保存的相对偏移或从默认绝对坐标换算
+            local absX = (widgetConfig and widgetConfig.posX) or 63
+            local absY = (widgetConfig and widgetConfig.posY) or -100
+            -- 已保存的偏移优先
+            offsetX = (widgetConfig and widgetConfig.relativeX) or (absX - 220)
+            offsetY = (widgetConfig and widgetConfig.relativeY) or (absY + 10)
+        end
+
+        -- 保存计算出的偏移以便持久化
+        if widgetConfig then
+            widgetConfig.relativeX = offsetX
+            widgetConfig.relativeY = offsetY
+        end
+
         PetFrameModule.anchor:ClearAllPoints()
-        PetFrameModule.anchor:SetPoint(anchor, PlayerFrame, "TOPRIGHT", posX, posY)
+        PetFrameModule.anchor:SetPoint("TOPLEFT", PlayerFrame, "TOPRIGHT", offsetX, offsetY)
         
     elseif widgetConfig and widgetConfig.posX and widgetConfig.posY then
         local anchor = widgetConfig.anchor or "TOPRIGHT"
