@@ -14,7 +14,6 @@ local DisableBlizzardModule = {
 local framesToHide = {
     -- 注意：MainMenuBar 不应该被隐藏，因为DragonUI需要它作为按钮容器
     -- MainMenuBar,
-    OverrideActionBar,        -- 载具动作条
 }
 
 -- 需要禁用事件和脚本的框架列表
@@ -42,8 +41,7 @@ local framesToDisable = {
     -- 其他相关
     ActionBarDownButton,      -- 动作条向下按钮
     ActionBarUpButton,        -- 动作条向上按钮
-    MainMenuBarVehicleLeaveButton, -- 载具离开按钮
-    OverrideActionBar,        -- 载具动作条
+    MainMenuBarVehicleLeaveButton, -- 载具离开按钮（由vehicle.lua接管）
     OverrideActionBarExpBar,  -- 载具经验条
     OverrideActionBarHealthBar, -- 载具血条
     OverrideActionBarPowerBar,  -- 载具能量条

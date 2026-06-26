@@ -117,6 +117,28 @@ local function CreateVehicleFrames()
     vehicleExit:Hide()
     vehicleLeave:Hide()
     
+    -- Position and style buttons when bar becomes visible (handles both vehicle and override bar)
+    vehiclebar:SetScript("OnShow", function()
+        if OverrideActionBar then
+            OverrideActionBar:Hide()
+        end
+        if addon.VehicleButtonPosition then
+            addon.VehicleButtonPosition()
+        end
+        if addon.vehiclebuttons_template then
+            addon.vehiclebuttons_template()
+        end
+    end)
+    vehiclebar:SetScript("OnHide", function()
+        local maxButtons = VEHICLE_MAX_ACTIONBUTTONS or 6
+        for index = 1, maxButtons do
+            local btn = _G['OverrideActionBarButton'..index]
+            if btn then
+                btn:SetParent(OverrideActionBar)
+            end
+        end
+    end)
+    
     -- Store frames for cleanup
     VehicleModule.frames = {
         created = true,
@@ -291,46 +313,40 @@ local function vehiclebutton_position()
     local bar = _G['OverrideActionBar']
     if not bar then return end
 
-    -- 获取底层背景框体（根据你提供的 Framestack，它是 pUiMainBarArt）
+    -- 获取底层背景框体
     local baseFrame = _G['pUiMainBarArt']
-    if not baseFrame then baseFrame = bar end  -- 如果找不到，就 fallback 到 bar
+    if not baseFrame then baseFrame = bar end
 
     local button
     local maxButtons = VEHICLE_MAX_ACTIONBUTTONS or 6
     
-    -- 【新增】检查是否有 OverrideActionBarHealthBar（载具血条）
+    -- 检查是否有 OverrideActionBarHealthBar
     local healthBar = _G['OverrideActionBarHealthBar']
     local hasHealthBar = healthBar and healthBar:IsVisible()
     
     local spacing, startX, startY, buttonSizeFactor
     
     if hasHealthBar then
-        -- 有血条：维持原样（你提供的代码逻辑）
         spacing = 10
         startX = -60
         startY = -5
         buttonSizeFactor = 1.6
         
-        -- 【修复判断】检查上下按钮背景框架是否存在且可见
         local pitchButtonBG = _G['OverrideActionBarPitchFramePitchButtonBG']
         if pitchButtonBG and pitchButtonBG:IsVisible() then
-            -- 只有真正显示时才右移
             startX = startX + 40
-            --print("检测到 PitchButtonBG 显示，按钮右移100像素")
         end
     else
-        -- 无血条：单独设置（非载具模式，比如你截图中的情况）
-        spacing = 25          -- 按钮间距
-        startX = -23            -- 整体X偏移（相对于baseFrame左下角）
-        startY = -1           -- 垂直微调
-        buttonSizeFactor = 1.1 -- 稍微小一点（可选）
-        
-        --print("未检测到 OverrideActionBarHealthBar，使用非载具模式设置")
+        spacing = 25
+        startX = -23
+        startY = -1
+        buttonSizeFactor = 1.1
     end
 
     for index = 1, maxButtons do
         button = _G['OverrideActionBarButton'..index]
         if button then
+            button:SetParent(vehiclebar)
             button:ClearAllPoints()
             button:SetSize(config.additional.size * buttonSizeFactor, config.additional.size * buttonSizeFactor)
             
@@ -345,6 +361,8 @@ local function vehiclebutton_position()
         end
     end
 end
+-- Store on addon table for access from OnShow handler
+addon.VehicleButtonPosition = vehiclebutton_position
 
 local function vehiclebutton_state(self)
     if not self then return end
@@ -360,13 +378,15 @@ local function vehiclebutton_state(self)
     self:SetAttribute('_onstate-vehicleupdate', [[
         if newstate == 's1' then
             self:GetParent():Show()
+            self:Show()
         else
             self:GetParent():Hide()
+            self:Hide()
         end
     ]])
     
     VehicleModule.stateDrivers.vehiclebarUpdate = {frame = self, state = 'vehicleupdate'}
-    RegisterStateDriver(self, 'vehicleupdate', '[vehicleui] s1; s2')
+    RegisterStateDriver(self, 'vehicleupdate', '[vehicleui][overridebar] s1; s2')
 end
 
 -- ============================================================================
@@ -450,13 +470,13 @@ local function OnEvent(self, event, ...)
     if event == 'PLAYER_LOGIN' then
         vehiclebutton_state(self)
     elseif event == 'PLAYER_ENTERING_WORLD' then
-        vehiclebutton_position()
+        if addon.VehicleButtonPosition then addon.VehicleButtonPosition() end
     elseif event == 'UNIT_ENTERED_VEHICLE' then
         if vehicleBarBackground then vehicleBarBackground:Show() end
         if vehiclebar then vehiclebar:Show() end
         vehiclebar_power_setup()
         vehiclebar_layout_setup()
-        vehiclebutton_position()
+        if addon.VehicleButtonPosition then addon.VehicleButtonPosition() end
         if addon.vehiclebuttons_template then
             addon.vehiclebuttons_template()
         end
@@ -473,7 +493,7 @@ local function OnEvent(self, event, ...)
         if VehicleMenuBarPowerBar then
             UnitFrameManaBar_Update(VehicleMenuBarPowerBar, 'vehicle')
         end
-        vehiclebutton_position()
+        if addon.VehicleButtonPosition then addon.VehicleButtonPosition() end
     end
 end
 
