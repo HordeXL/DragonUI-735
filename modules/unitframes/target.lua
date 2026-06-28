@@ -249,6 +249,14 @@ TargetFrame.SetPoint = function(self, point, relativeTo, relativePoint, x, y)
     end
 end
 
+local MOP_POWER_EVENTS = {"UNIT_MANA","UNIT_RAGE","UNIT_ENERGY","UNIT_FOCUS","UNIT_RUNIC_POWER","UNIT_MAXMANA"}
+local function IsPowerEvent(event)
+    for _, e in ipairs(MOP_POWER_EVENTS) do
+        if e == event then return true end
+    end
+    return false
+end
+
 
 -- ============================================================================
 -- CLASS COLORS
@@ -932,7 +940,7 @@ local function OnEvent(self, event, ...)
             Module.textSystem.update()
         end
 
-    elseif event == "UNIT_DISPLAYPOWER" or event == "UNIT_MODEL_CHANGED" then
+    elseif IsPowerEvent(event) or event == "UNIT_MODEL_CHANGED" then
     local unit = ...
     if unit == "target" and UnitExists("target") then
         UpdateClassification()
@@ -956,7 +964,7 @@ local function OnEvent(self, event, ...)
         if unit == "target" then
             UpdateNameBackground()
         end
-    elseif event == "UNIT_MODEL_CHANGED" or event == "UNIT_DISPLAYPOWER" or event == "UNIT_LEVEL" or event ==
+    elseif event == "UNIT_MODEL_CHANGED" or IsPowerEvent(event) or event == "UNIT_LEVEL" or event ==
         "UNIT_NAME_UPDATE" then
         local unit = ...
         if unit == "target" and UnitExists("target") then
@@ -964,7 +972,7 @@ local function OnEvent(self, event, ...)
             UpdateClassification()
         end
     
-    elseif event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_POWER_UPDATE" or event == "UNIT_MAXPOWER" then
+    elseif event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or IsPowerEvent(event) then
         local unit = ...
         if unit == "target" and UnitExists("target") and Module.textSystem then
             Module.textSystem.update()
@@ -1045,7 +1053,9 @@ if not Module.eventsFrame then
     Module.eventsFrame:RegisterEvent("UNIT_THREAT_LIST_UPDATE")
     Module.eventsFrame:RegisterEvent("UNIT_FACTION")
     Module.eventsFrame:RegisterEvent("UNIT_MODEL_CHANGED")
-    Module.eventsFrame:RegisterEvent("UNIT_DISPLAYPOWER")
+    for _, e in ipairs(MOP_POWER_EVENTS) do
+        Module.eventsFrame:RegisterEvent(e)
+    end
     Module.eventsFrame:RegisterEvent("UNIT_LEVEL")
     Module.eventsFrame:RegisterEvent("UNIT_NAME_UPDATE")
     Module.eventsFrame:RegisterEvent("UNIT_PORTRAIT_UPDATE")
@@ -1060,8 +1070,7 @@ if not Module.eventsFrame then
     --  EVENTOS CRÍTICOS PARA EL TEXT SYSTEM
     Module.eventsFrame:RegisterEvent("UNIT_HEALTH")
     Module.eventsFrame:RegisterEvent("UNIT_MAXHEALTH") 
-    Module.eventsFrame:RegisterEvent("UNIT_POWER_UPDATE")
-    Module.eventsFrame:RegisterEvent("UNIT_MAXPOWER")
+    Module.eventsFrame:RegisterEvent("UNIT_CLASSIFICATION_CHANGED")
     Module.eventsFrame:SetScript("OnEvent", OnEvent)
 end
 

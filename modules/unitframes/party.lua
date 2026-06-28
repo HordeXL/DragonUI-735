@@ -1392,7 +1392,9 @@ local function SetupPartyHooks()
                 if healthbar then
                     UpdateHealthText(healthbar, false)
                 end
-            elseif event == "UNIT_POWER" or event == "UNIT_MAXPOWER" or event == "UNIT_DISPLAYPOWER" then
+            elseif event == "UNIT_POWER" or event == "UNIT_MAXPOWER" or event == "UNIT_DISPLAYPOWER"
+                   or event == "UNIT_MANA" or event == "UNIT_RAGE" or event == "UNIT_ENERGY"
+                   or event == "UNIT_FOCUS" or event == "UNIT_RUNIC_POWER" or event == "UNIT_MAXMANA" then
                 local manabar = _G[frame:GetName() .. 'ManaBar']
                 if manabar then
                     UpdateManaText(manabar, false)

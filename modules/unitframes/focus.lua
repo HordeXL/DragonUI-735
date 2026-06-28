@@ -22,6 +22,14 @@ local function GetConfig()
     return setmetatable(config, {__index = defaults})
 end
 
+local MOP_POWER_EVENTS = {"UNIT_MANA","UNIT_RAGE","UNIT_ENERGY","UNIT_FOCUS","UNIT_RUNIC_POWER","UNIT_MAXMANA"}
+local function IsPowerEvent(event)
+    for _, e in ipairs(MOP_POWER_EVENTS) do
+        if e == event then return true end
+    end
+    return false
+end
+
 
 -- ============================================================================
 -- UTILITY FUNCTIONS FOR CENTRALIZED SYSTEM
@@ -758,7 +766,7 @@ local function OnEvent(self, event, ...)
         if unit == "focus" and UnitExists("focus") and Module.textSystem then
             Module.textSystem.update()
         end
-    elseif event == "UNIT_POWER_UPDATE" or event == "UNIT_MAXPOWER" then
+    elseif IsPowerEvent(event) then
         local unit = ...
         if unit == "focus" and UnitExists("focus") then
             -- Actualizar inmediatamente la barra de poder
@@ -767,11 +775,10 @@ local function OnEvent(self, event, ...)
                 Module.textSystem.update()
             end
         end
-    elseif event == "UNIT_DISPLAYPOWER" then
+    elseif IsPowerEvent(event) then
         local unit = ...
         if unit == "focus" and UnitExists("focus") then
-            -- Actualización inmediata cuando cambia el tipo de poder (cambio de forma)
-            updateCache.lastPowerUpdate = 0 -- Reset timer para forzar actualización
+            updateCache.lastPowerUpdate = 0
             UpdatePowerBar()
             if Module.textSystem then
                 Module.textSystem.update()
@@ -794,9 +801,9 @@ if not Module.eventsFrame then
     -- Critical events for the text system
     Module.eventsFrame:RegisterEvent("UNIT_HEALTH")
     Module.eventsFrame:RegisterEvent("UNIT_MAXHEALTH") 
-    Module.eventsFrame:RegisterEvent("UNIT_POWER_UPDATE")
-    Module.eventsFrame:RegisterEvent("UNIT_MAXPOWER")
-    Module.eventsFrame:RegisterEvent("UNIT_DISPLAYPOWER")
+    for _, e in ipairs(MOP_POWER_EVENTS) do
+        Module.eventsFrame:RegisterEvent(e)
+    end
     Module.eventsFrame:SetScript("OnEvent", OnEvent)
 end
 

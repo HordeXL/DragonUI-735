@@ -37,6 +37,28 @@ if textureMetatable and not textureMetatable.set_atlas then
 end
 addon.SetAtlas = SetAtlas
 
+-- ============================================================================
+-- C_TIMER COMPATIBILITY SHIM (for WoW 5.4.8 Mists of Pandaria)
+-- ============================================================================
+-- C_Timer.After was added in WoD 6.0. Provide fallback for MoP 5.4.8.
+if C_Timer and not C_Timer.After then
+    function C_Timer.After(delay, func)
+        if not func then return end
+        local f = CreateFrame("Frame")
+        local elapsed = 0
+        f:SetScript("OnUpdate", function(self, e)
+            elapsed = elapsed + e
+            if elapsed >= delay then
+                local ok, err = pcall(func)
+                if not ok then
+                    geterrorhandler()(err)
+                end
+                self:SetScript("OnUpdate", nil)
+            end
+        end)
+    end
+end
+
 -- Order hall area IDs for Legion class halls (used by multiple modules)
 addon.ORDER_HALL_AREA_IDS = {
     [7272] = true, [7572] = true,  -- Mage - Hall of the Guardian

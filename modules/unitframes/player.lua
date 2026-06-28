@@ -117,8 +117,11 @@ local HEALTH_EVENTS = {
 
 local POWER_EVENTS = {
     UNIT_MAXMANA = true,
-    UNIT_DISPLAYPOWER = true,
-    UNIT_POWER_UPDATE = true
+    UNIT_MANA = true,
+    UNIT_RAGE = true,
+    UNIT_ENERGY = true,
+    UNIT_FOCUS = true,
+    UNIT_RUNIC_POWER = true,
 }
 
 -- Rune type coordinates
@@ -1871,6 +1874,8 @@ local function SetupPlayerEvents()
                 end
                 if PlayerFrameManaBar then
                     PlayerFrameManaBar:GetScript("OnEvent")(PlayerFrameManaBar, "UNIT_POWER_UPDATE", "player")
+                    -- For MoP 5.4.8 compatibility
+                    PlayerFrameManaBar:GetScript("OnEvent")(PlayerFrameManaBar, "UNIT_MANA", "player")
                     -- SOLUCIÓN: Restaurar el pintado blanco para pureza de textura
                     UpdateManaBarColor(PlayerFrameManaBar)
                 end
