@@ -10,5 +10,6 @@
     <Script file="tof.lua"/>
     <Script file="party.lua"/>
     <Script file="pet.lua"/>
+    <Script file="nameplate.lua"/>
 
 </Ui>

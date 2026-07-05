@@ -2465,10 +2465,265 @@ function addon:CreateOptionsTable()
                 }
             },
 
+            nameplate = {
+                type = 'group',
+                name = "姓名版",
+                order = 5,
+                args = {
+                    enabled = {
+                        type = 'toggle',
+                        name = "启用",
+                        desc = "启用 DragonUI 姓名版样式",
+                        get = function()
+                            return addon.db.profile.unitframe.nameplate.enabled
+                        end,
+                        set = function(info, value)
+                            addon.db.profile.unitframe.nameplate.enabled = value
+                            if addon.NamePlates and addon.NamePlates.Refresh then
+                                addon.NamePlates.Refresh()
+                            end
+                        end,
+                        order = 1
+                    },
+                    classcolor = {
+                        type = 'toggle',
+                        name = "职业颜色",
+                        desc = "玩家姓名版血条使用职业颜色",
+                        get = function()
+                            return addon.db.profile.unitframe.nameplate.classcolor
+                        end,
+                        set = function(info, value)
+                            addon.db.profile.unitframe.nameplate.classcolor = value
+                            if addon.NamePlates and addon.NamePlates.Refresh then
+                                addon.NamePlates.Refresh()
+                            end
+                        end,
+                        order = 2
+                    },
+                    showThreatGlow = {
+                        type = 'toggle',
+                        name = "威胁高亮",
+                        desc = "根据威胁值显示边框颜色",
+                        get = function()
+                            return addon.db.profile.unitframe.nameplate.showThreatGlow
+                        end,
+                        set = function(info, value)
+                            addon.db.profile.unitframe.nameplate.showThreatGlow = value
+                            if addon.NamePlates and addon.NamePlates.Refresh then
+                                addon.NamePlates.Refresh()
+                            end
+                        end,
+                        order = 3
+                    },
+                    borderStyle = {
+                        type = 'select',
+                        name = "边框样式",
+                        desc = "血条边框的视觉风格",
+                        values = {
+                            castbar = "施法条风格",
+                            unitframe = "单位框体风格",
+                        },
+                        get = function()
+                            return addon.db.profile.unitframe.nameplate.borderStyle
+                        end,
+                        set = function(info, value)
+                            addon.db.profile.unitframe.nameplate.borderStyle = value
+                            if addon.NamePlates and addon.NamePlates.Refresh then
+                                addon.NamePlates.Refresh()
+                            end
+                        end,
+                        order = 4
+                    },
+                    showNameBackground = {
+                        type = 'toggle',
+                        name = "名字背景",
+                        desc = "显示名字背景增强可读性",
+                        get = function()
+                            return addon.db.profile.unitframe.nameplate.showNameBackground
+                        end,
+                        set = function(info, value)
+                            addon.db.profile.unitframe.nameplate.showNameBackground = value
+                            if addon.NamePlates and addon.NamePlates.Refresh then
+                                addon.NamePlates.Refresh()
+                            end
+                        end,
+                        order = 5
+                    },
+                    showLevel = {
+                        type = 'toggle',
+                        name = "等级显示",
+                        desc = "在姓名版上显示等级",
+                        get = function()
+                            return addon.db.profile.unitframe.nameplate.showLevel
+                        end,
+                        set = function(info, value)
+                            addon.db.profile.unitframe.nameplate.showLevel = value
+                            if addon.NamePlates and addon.NamePlates.Refresh then
+                                addon.NamePlates.Refresh()
+                            end
+                        end,
+                        order = 6
+                    },
+                    showCastBar = {
+                        type = 'toggle',
+                        name = "施法条",
+                        desc = "显示 DragonUI 风格施法条边框",
+                        get = function()
+                            return addon.db.profile.unitframe.nameplate.showCastBar
+                        end,
+                        set = function(info, value)
+                            addon.db.profile.unitframe.nameplate.showCastBar = value
+                            if addon.NamePlates and addon.NamePlates.Refresh then
+                                addon.NamePlates.Refresh()
+                            end
+                        end,
+                        order = 7
+                    },
+                    showPowerBar = {
+                        type = 'toggle',
+                        name = "能量条",
+                        desc = "在血条下方显示能量条",
+                        get = function()
+                            return addon.db.profile.unitframe.nameplate.showPowerBar
+                        end,
+                        set = function(info, value)
+                            addon.db.profile.unitframe.nameplate.showPowerBar = value
+                            if addon.NamePlates and addon.NamePlates.Refresh then
+                                addon.NamePlates.Refresh()
+                            end
+                        end,
+                        order = 8
+                    },
+                    showHealthText = {
+                        type = 'toggle',
+                        name = "血量文字",
+                        desc = "在血条中间显示血量/百分比",
+                        get = function()
+                            return addon.db.profile.unitframe.nameplate.showHealthText
+                        end,
+                        set = function(info, value)
+                            addon.db.profile.unitframe.nameplate.showHealthText = value
+                            if addon.NamePlates and addon.NamePlates.Refresh then
+                                addon.NamePlates.Refresh()
+                            end
+                        end,
+                        order = 9
+                    },
+                    width = {
+                        type = 'range',
+                        name = "宽度",
+                        desc = "姓名版血条宽度",
+                        min = 60,
+                        max = 250,
+                        step = 1,
+                        get = function()
+                            return addon.db.profile.unitframe.nameplate.width
+                        end,
+                        set = function(info, value)
+                            addon.db.profile.unitframe.nameplate.width = value
+                            if addon.NamePlates and addon.NamePlates.Refresh then
+                                addon.NamePlates.Refresh()
+                            end
+                        end,
+                        order = 10
+                    },
+                    healthBarHeight = {
+                        type = 'range',
+                        name = "血条高度",
+                        desc = "血条的高度",
+                        min = 2,
+                        max = 20,
+                        step = 1,
+                        get = function()
+                            return addon.db.profile.unitframe.nameplate.healthBarHeight
+                        end,
+                        set = function(info, value)
+                            addon.db.profile.unitframe.nameplate.healthBarHeight = value
+                            if addon.NamePlates and addon.NamePlates.Refresh then
+                                addon.NamePlates.Refresh()
+                            end
+                        end,
+                        order = 11
+                    },
+                    castBarHeight = {
+                        type = 'range',
+                        name = "施法条高度",
+                        desc = "施法条的高度",
+                        min = 2,
+                        max = 15,
+                        step = 1,
+                        get = function()
+                            return addon.db.profile.unitframe.nameplate.castBarHeight
+                        end,
+                        set = function(info, value)
+                            addon.db.profile.unitframe.nameplate.castBarHeight = value
+                            if addon.NamePlates and addon.NamePlates.Refresh then
+                                addon.NamePlates.Refresh()
+                            end
+                        end,
+                        order = 12
+                    },
+                    powerBarHeight = {
+                        type = 'range',
+                        name = "能量条高度",
+                        desc = "能量条的高度",
+                        min = 2,
+                        max = 10,
+                        step = 1,
+                        get = function()
+                            return addon.db.profile.unitframe.nameplate.powerBarHeight
+                        end,
+                        set = function(info, value)
+                            addon.db.profile.unitframe.nameplate.powerBarHeight = value
+                            if addon.NamePlates and addon.NamePlates.Refresh then
+                                addon.NamePlates.Refresh()
+                            end
+                        end,
+                        order = 13
+                    },
+                    nameFontSize = {
+                        type = 'range',
+                        name = "名字字号",
+                        desc = "姓名文字大小",
+                        min = 6,
+                        max = 20,
+                        step = 1,
+                        get = function()
+                            return addon.db.profile.unitframe.nameplate.nameFontSize
+                        end,
+                        set = function(info, value)
+                            addon.db.profile.unitframe.nameplate.nameFontSize = value
+                            if addon.NamePlates and addon.NamePlates.Refresh then
+                                addon.NamePlates.Refresh()
+                            end
+                        end,
+                        order = 14
+                    },
+                    healthFontSize = {
+                        type = 'range',
+                        name = "血量字号",
+                        desc = "血量文字大小",
+                        min = 6,
+                        max = 20,
+                        step = 1,
+                        get = function()
+                            return addon.db.profile.unitframe.nameplate.healthFontSize
+                        end,
+                        set = function(info, value)
+                            addon.db.profile.unitframe.nameplate.healthFontSize = value
+                            if addon.NamePlates and addon.NamePlates.Refresh then
+                                addon.NamePlates.Refresh()
+                            end
+                        end,
+                        order = 15
+                    }
+                }
+            },
+
             unitframe = {
                 type = 'group',
                 name = "单位框体",
-                order = 5,
+                order = 6,
                 args = {
                     general = {
                         type = 'group',
@@ -3420,7 +3675,9 @@ function addon:CreateOptionsTable()
                             },
                            
                         }
-                    }
+                    },
+
+
                 }
             },
 

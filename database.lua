@@ -422,6 +422,23 @@ local defaults = {
                 anchor = 'BOTTOMRIGHT',
                 anchorParent = 'BOTTOMRIGHT',
                 anchorFrame = 'FocusFrame'
+            },
+            nameplate = {
+                enabled = true,
+                classcolor = true,
+                showThreatGlow = true,
+                showNameBackground = true,
+                showLevel = true,
+                showCastBar = true,
+                showPowerBar = false,
+                showHealthText = true,
+                borderStyle = "castbar",
+                width = 120,
+                healthBarHeight = 8,
+                castBarHeight = 6,
+                powerBarHeight = 4,
+                nameFontSize = 10,
+                healthFontSize = 9,
             }
         },
 
